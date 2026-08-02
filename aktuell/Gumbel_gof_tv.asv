@@ -1,0 +1,73 @@
+function [P,kappa4] = Gumbel_gof_tv(data)
+% Goodness-of-fit test für die Placket-Copula
+% Input: Ein Tx2 Datenvektor (Returnzeitreihe)
+% Output: P-value
+%         Parameter der Placket-Copula geschätzt mit empirischer
+%         Marginalverteilung
+% Autor: Martin Grziska
+
+% Anzahl der Simulationens
+N=2000;
+% Berechne empirische Marginalverteilung
+[t,k]=size(data);
+U = empiricalCopula(data);
+V = empiricalCDF(data);
+
+% Schätzen der Placket-Copula
+options = optimset('Display','iter','TolCon',10^-12,'TolFun',10^-4,'TolX',10^-6);
+lower = 1.1;
+theta0 = 2;
+[ kappa4 LL4] = fmincon('gumbelCL',theta0,[],[],[],[],lower,[],[],options,V);
+
+% Schätzen der zeitvariierenden Gumbel-Copula
+lower = -5*ones(3,1);  % in theory there are no constraints, but setting loose constraints sometimes helps in the numerical optimisation
+upper =  5*ones(3,1);
+theta0 = [sqrt(kappa4-1);0;0];
+[ kappa4_tv LL4_tv] = fmincon('Gumbel_tvp1_CL',theta0,[],[],[],[],lower,upper,[],options,V,kappa4);
+[LL42, rho4_tv] = Gumbel_tvp1_CL(kappa4_tv,[V], kappa4);
+
+% generiere Zufallsvariablen U der zeitvariierenden Gumbel-Copula am aktuellen Rand
+[uGumbel] = gumbel_rnd(rho4_tv(end),t,1);
+
+% Approximiere parametrische Copula
+B = empiricalCopula(uGumbel);
+
+% Approximiere S
+S = sum((U - B).^2);
+
+% generiere Zufallsvariablen U der Gumbel-Copula
+for i=1:2:N
+[uGumbel2(:,i:i+1)] = gumbel_rnd(rho4_tv(end),t,i);
+end
+
+% Berechne empirische Copula der Pseudovariablen
+k=1;
+for i=1:2:N
+U3(:,k)=empiricalCopula(uGumbel2(:,i:i+1));
+k=k+1;
+end
+% Bereche zeitvariierende Placket-Copula für die Pseudovariablen
+theta0 = [sqrt(kappa4-1);0;0];
+for i=1:2:N
+[ kappa4_tv(:,i) LL4_tv] = fmincon('Gumbel_tvp1_CL',theta0,[],[],[],[],lower,upper,[],options,(:,i:i+1),kappa4);
+[LL43, rho42_tv(:,i)] = Gumbel_tvp1_CL(kappa4_tv(:,i),kappa4_tv(:,i:i+1), kappa4);
+end
+% generiere Zufallsvariablen U der Gumbel-Copula
+for i=1:2:N
+[uGumbel3(:,i:i+1),l3] = gumbel_rnd(rho42_tv(end,i),t,1);
+end
+% Approximiere parametrische Verteilung
+k=1;
+for i=1:2:N
+B3(:,k)= empiricalCopula(uGumbel3(:,i:i+1));
+k=k+1;
+end
+
+% Approximiere S
+S2 = sum((U3- B3).^2);
+
+for i=1:size(S2,2)
+count(i)=S2(i)>S(1);
+end
+
+P = sum(count)./(N/2);

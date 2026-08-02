@@ -1,0 +1,123 @@
+function [VarianceForecast, MeanForecast] = ar_garch_forecast_multiP(GARCHOutput,forecastP)
+% Forecast für conditional mean und variance für AR(k)-GARCH Modelle
+%
+% GARCH-Modelle: GARCH,EGARCH,TGARCH,GJRGARCH
+%
+% USAGE:    [VarianceForecast, MeanForecast] = ar_garch_forecast_multiP(GARCHOutput,forecastP)
+%
+% INPUTS:
+%                 data:     tx1 vector of returns
+%          GARCHOutput:     structure from AR_MArginalModel.m (with
+%                           estimated GARCH-Parameters)
+%                arlag:     # of lags in AR(k)-GARCH
+%                const:     0 if AR(k)-GARCH was estimated without constant, else 1
+%            forecastP:     forecast horizon
+%
+% OUTPUTS:
+%     VarianceForecast:
+%
+%        Mean Forecast:     cell-array which contains the forecasted
+%                           conditional mean (for each estimated GARCH
+%                           model)
+%
+% Author: Martin Grziska, 05/12/2010
+
+% -------------------------------------------------------------------------
+
+% Root Mean square error Forecast des conditional mean mit der Matlab
+% toolbox
+k = size(GARCHOutput,1);
+paramsAR = cell(k,1);
+arlag = cell(k,1);
+MeanForecast = cell(k,1);
+MeanRMSE = cell(k,1);
+Spec=cell(k,1);
+data = cell(k,1);
+for i=1:k
+    paramsAR{i} = GARCHOutput{i}.ParamsAR;
+    arlag{i} = GARCHOutput{i}.arlag;
+    data{i} = GARCHOutput{i}.data;
+    % setze Dummy's für das GARCH-Model und füge die mit der Funktion
+    % "AR_MarginalModel" geschätzten AR-Koeffizienten ein; Schätzung des
+    % conditional forecasts beruht nur auf den AR-Koeffizienten
+    Spec{i} = garchset('ARCH',.1,'GARCH',.8,'K',.0001,'R',arlag{i},'M',0,'AR',paramsAR{i}(2:end),'C',paramsAR{i}(1));
+    [Holder,MeanForecast{i},Holder,MeanRMSE{i}]  = garchpred(Spec{i},data{i},forecastP);
+end
+% -------------------------------------------------------------------------
+
+% -------------------------------------------------------------------------
+% forecasts der GARCH-Modelle
+% Formeln nach Zivot, "Practical Issues in the Analysis of univariate GARCH
+% models, in: Handbook of financial time series (2009)
+% GARCH
+paramsGARCH = cell(k,1);
+paramsAR = cell(k,1);
+VarianceForecast = cell(k,1);
+for j=1:k
+    if strcmp(GARCHOutput{j}.GARCH,'GARCH')
+        sum1 = cell(k,1);
+        sum2 = cell(k,1);
+        paramsGARCH{j} = GARCHOutput{j}.ParamsGARCH;
+        if paramsGARCH{j}(3)>1
+            paramsGARCH{j}(3) = .9999;
+        end
+        paramsAR{j} = GARCHOutput{j}.ParamsAR;
+        sum1{j} = zeros(forecastP-1,1);
+        sum1{j}(1)=1;
+        for i=2:forecastP
+            sum1{j}(i,1) = sum1{j}(i-1)+(paramsGARCH{j}(2)+paramsGARCH{j}(3))^(i-1);
+        end
+        sum1{j} = sum1{j}*paramsGARCH{j}(1);
+        for i=2:forecastP
+            sum2{j}(i) =  ((paramsGARCH{j}(2) + paramsGARCH{j}(3))^i)*GARCHOutput{j}.ht(end);
+        end
+        VarianceForecast{j} = sum1{j}+ sum2{j}';
+        %                forecast der ersten Periode, also t+1
+        VarianceForecast{j}(1) = paramsGARCH{j}(1) + paramsGARCH{j}(2)*GARCHOutput{j}.Innovations(end)^2 + paramsGARCH{j}(3)*GARCHOutput{j}.ht(end);
+    elseif strcmp(GARCHOutput{j}.GARCH,'TGARCH')
+        paramsGARCH{j} = GARCHOutput{j}.ParamsGARCH;
+        if paramsGARCH{j}(4)>1
+            paramsGARCH{j}(4) = .9999;
+        end
+%         formula for ZARCH: Cappiello(2006); first period forecast: just
+%         plugin
+        VarianceForecast{j}(1) = (paramsGARCH{j}(1) + paramsGARCH{j}(2)*abs(GARCHOutput{j}.Innovations(end)) + paramsGARCH{j}(3)*abs(GARCHOutput{j}.Innovations(end))*(GARCHOutput{j}.Innovations(end)<0) + paramsGARCH{j}(4)*sqrt(GARCHOutput{j}.ht(end)))^2;
+%         formula for remaining periods: Zivot(2008)
+        for i=2:forecastP
+            VarianceForecast{j}(i) = paramsGARCH{j}(1) + ((paramsGARCH{j}(2)+paramsGARCH{j}(3)/2+paramsGARCH{j}(4))^(i-1)) * VarianceForecast{j}(1);
+        end
+    elseif  strcmp(GARCHOutput{j}.GARCH,'GJRGARCH')
+        paramsGARCH{j} = GARCHOutput{j}.ParamsGARCH;
+        if paramsGARCH{j}(4)>1
+            paramsGARCH{j}(4) = .9999;
+        end
+        VarianceForecast{j}(1) = paramsGARCH{j}(1) + paramsGARCH{j}(2)*GARCHOutput{j}.Innovations(end)^2 + paramsGARCH{j}(3)*GARCHOutput{j}.Innovations(end)^2*(GARCHOutput{j}.Innovations(end)<0) + paramsGARCH{j}(4)*GARCHOutput{j}.ht(end);
+        for i=2:forecastP
+            VarianceForecast{j}(i) = paramsGARCH{j}(1) + ((paramsGARCH{j}(2)+paramsGARCH{j}(3)/2+paramsGARCH{j}(4))^(i-1)) * VarianceForecast{j}(1);
+        end
+    elseif strcmp(GARCHOutput{j}.GARCH,'EGARCH')
+        paramsGARCH{j} = GARCHOutput{j}.ParamsGARCH;
+        if paramsGARCH{j}(4)>1
+            paramsGARCH{j}(4) = .9999;
+        end
+        paramsAR{j} = GARCHOutput{j}.ParamsAR;
+        if strcmp(GARCHOutput{j}.dist,'STUDENTST') || strcmp(GARCHOutput{j}.dist,'GED') || strcmp(GARCHOutput{j}.dist,'SKEWT')
+            Spec = garchset('Distribution','T','DoF',paramsGARCH{j}(5),'VarianceModel','EGARCH','K',paramsGARCH{j}(1),'GARCH',paramsGARCH{j}(4),'ARCH',paramsGARCH{j}(3),'Leverage',paramsGARCH{j}(2),'AR',paramsAR{j}(2:end),'C',paramsAR{j}(1),'M',0);
+        else
+            Spec = garchset('Distribution','Gaussian','VarianceModel','EGARCH','K',paramsGARCH{j}(1),'GARCH',paramsGARCH{j}(4),'ARCH',paramsGARCH{j}(3),'Leverage',paramsGARCH{j}(2),'AR',paramsAR{j}(2:end),'C',paramsAR{j}(1),'M',0);
+        end
+        [VarianceForecast{j}] = garchpred(Spec,GARCHOutput{j}.data,forecastP);
+        %         garchpred forecasted sigma
+        VarianceForecast{j} = VarianceForecast{j}.^2;
+    end
+end
+
+% Vergleiche den Varianz-forecast über forecastP Perioden mit den forecastP
+% letzten Varianzen der univariaten Modelle; in der ersten Spalte stehen
+% die Varianzen der univariaten Modlle, in der zweiten Spalte die
+% forgecasteten Varianzen
+VarianceCompare = cell(k,1);
+for i=1:k
+    VarianceCompare{i}(:,1) = GARCHOutput{i}.ht(end-forecastP+1:end);
+    VarianceCompare{i}(:,2) = VarianceForecast{i};
+end

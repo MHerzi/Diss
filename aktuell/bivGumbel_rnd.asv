@@ -1,0 +1,11 @@
+function [U1,U2] = bivGumbel_rnd(theta,T)
+
+% Simuliert nach dem Conditonal Copula Algorithmus von Cherubini S.184
+% Daten einer bivariaten Gumbel-Copula
+% Input: theta: P
+% Generiere i.i.d. U(0,1) verteilte Variablen
+V = random('unif',0,1,[T 2]);
+
+U1 = V(:,1);
+
+U2 = (V(:,1)^(-theta)*(V(:,2)^(-theta/(theta+1))-1)+1)^(-1/theta);

@@ -1,0 +1,39 @@
+function [CL, rhohat, theta] = bivt_tvp1_CL(theta,Zdata,rhobar)
+% function [CL, rhohat, theta] = bivt_tvp1_CL(theta,Zdata,rhobar)
+% 
+% Time-varying t-copula
+% The negative copula log-likelihood of a 
+% bivariate t-distribution
+% with time-varying correlation
+% by Martin Grziska
+% 26.06.2008
+
+nu  = theta(4);
+T = size(Zdata,1);
+
+if nu>=100;			
+   x = norminv(Zdata(:,1));
+   y = norminv(Zdata(:,2));
+else
+   x = tdis_inv(Zdata(:,1),nu);
+   y = tdis_inv(Zdata(:,2),nu);
+end
+
+kappa = -999.99*ones(T,1);
+kappa(1) = rhobar;			
+for jj = 2:T
+    if jj<=10
+        psi = theta(1) + theta(2)*mean(x(1:jj-1).*y(1:jj-1)) + theta(3)*kappa(jj-1);
+    else
+        psi = theta(1) + theta(2)*mean(x(jj-10:jj-1).*y(jj-10:jj-1)) + theta(3)*kappa(jj-1);
+    end
+%    kappa(jj) = 1.998/(1+exp(-psi))-0.999;		% a modified logistic transformation
+kappa(jj) = psi;
+end
+rhohat = kappa;  % time-path of conditional copula parameter
+
+CL = gammaln((nu+2)/2) + gammaln(nu/2) - 2*gammaln((nu+1)/2) - 0.5*log((1-kappa.^2));
+CL = CL - (nu+2)/2*log(1+(x.^2 + y.^2 - 2*kappa.*x.*y)./(nu*(1-kappa.^2)));
+CL = CL + (nu+1)/2*log(1+x.^2/nu) + (nu+1)/2*log(1+y.^2/nu);
+CL = sum(CL);
+CL = -CL;

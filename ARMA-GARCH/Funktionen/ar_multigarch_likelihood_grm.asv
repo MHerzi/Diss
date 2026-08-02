@@ -1,0 +1,211 @@
+function [LLF,Ht, likelihoods, resid] = ar_multigarch_likelihood_grm(parameters,data,p,o,q,garchtype, errortype, arlag, const)
+% PURPOSE:
+%   Likelihood for multigarch
+%
+% USAGE:
+%   [LLF,Ht, likelihoods] = multigarch_likelihood(parameters,data,p,q,garchtype, errortype, stdEstimate, arlag)
+%
+% INPUTS:
+%   parameters - Parameters for estimation, const, arch, garch, special
+%   data       - T+max(p,q) by 1 vector of data
+%   p          - Order of ARCH
+%   q          - Ordrr of GARCH
+%   garchtype  - Number representing garch type
+%   errortype  - Number representing the eror type
+%   stdEstimate- Std Dev of the data
+%   arlag      - # of lags in AR(k) model
+%
+% OUTPUTS:
+%   LLF         - Log Likelihood
+%   Ht          - Estimated Conditional Variance
+%   likeihoods  - T by 1 vector of likelihoods
+%
+% COMMENTS:
+%   Helper Function for multigarch
+%
+% Author: Martin Grziska
+% kevin.sheppard@economics.ox.ac.uk
+% Revision: 2    Date: 12/31/2001
+% Modfiikation: 02/22/2010
+
+% Specification of AR(k) model
+if errortype == 1
+    b0 = parameters(size(parameters,1)-arlag+1:end);
+    n = length(data);
+    if const == 1
+        nlag = arlag-1;
+        x = [ones(n,1) mlag(data,nlag)];
+    else
+        nlag = arlag;
+        x = mlag(data,nlag);
+    end
+    x = trimr(x,nlag,0);
+    resid = trimr(data,nlag,0);
+    resid = resid - x*b0;
+    parameters = parameters(1:size(parameters,1)-arlag);
+elseif errortype == 4
+    b0 = parameters(size(parameters,1)-arlag-1:end-2);
+    n=length(data);
+    if const == 1
+        nlag = arlag-1;
+        x = [ones(n,1) mlag(data,nlag)];
+    else
+        nlag = arlag;
+        x = mlag(data,nlag);
+    end
+    x = trimr(x,nlag,0);
+    resid = trimr(data,nlag,0);
+    resid = resid - x*b0;
+    parameters = [parameters(1:size(parameters,1)-arlag-2); parameters(end-1:end)];
+else
+    b0 = parameters(size(parameters,1)-arlag:end-1);
+    n = length(data);
+     if const == 1
+        nlag = arlag-1;
+        x = [ones(n,1) mlag(data,nlag)];
+    else
+        nlag = arlag;
+        x = mlag(data,nlag);
+    end
+    x = trimr(x,nlag,0);
+    resid = trimr(data,nlag,0);
+    resid = resid - x*b0;
+    parameters = [parameters(1:size(parameters,1)-arlag-1); parameters(end)];
+end
+
+stdEstimate = std(resid);
+resid = [stdEstimate;resid];
+
+
+parameters(find(parameters(1:1+p+o+q) <= 0)) = realmin;
+garchparameters = parameters(1:p+o+q+1);
+remainingparams = parameters(p+q+o+2:length(parameters));
+constp = garchparameters(1);
+archp = garchparameters(2:p+1);
+tarchp = garchparameters(p+2:p+o+1);
+garchp = garchparameters(p+o+2:p+q+o+1);
+
+if garchtype == 1
+    lambda=2;
+    nu=2;
+    b=0;
+elseif garchtype == 2
+    lambda=1;
+    nu=1;
+    b=0;
+elseif garchtype == 3
+    lambda=1;
+    nu=1;
+    b=remainingparams(1);
+elseif garchtype == 4
+    lambda=remainingparams(1);
+    nu=lambda;
+    b=0;
+elseif garchtype == 5
+    lambda=2;
+    nu=2;
+    b=remainingparams(1);
+elseif garchtype == 6
+    lambda=remainingparams(1);
+    nu=lambda;
+    b=0;
+elseif garchtype == 7
+    lambda=remainingparams(1);
+    nu=lambda;
+    b=remainingparams(2);
+elseif garchtype == 8
+    lambda=2;
+    nu=2;
+    b=0;
+end
+
+if errortype == 2
+    nu2 = remainingparams(length(remainingparams));
+elseif errortype == 3
+    nu2 = remainingparams(length(remainingparams));
+elseif errortype == 4
+    nu2 = remainingparams(1);
+    lambda2 = remainingparams(2);
+end
+
+if isempty(q)
+    m=p;
+else
+    m  =  max(p,q);
+end
+T           =  size(resid,1);
+t = (m + 1):T;
+residmb=resid-b;
+residneg=(resid<0).*residmb;
+h=multigarchcore(abs(residmb),abs(residneg),garchparameters,nu,lambda,b,p,o,q,m,T,stdEstimate);
+h=h.^2;
+
+Tau = T-m;
+LLF = 0;
+
+if errortype == 1
+    LLF  =  sum(log(h(t)) + (resid(t).^2)./h(t));
+    LLF  =  0.5 * (LLF  +  (T - m)*log(2*pi));
+elseif errortype == 2
+    LLF = Tau*gammaln(0.5*(nu2+1)) - Tau*gammaln(nu2/2) - Tau/2*log(pi*(nu2-2));
+    LLF = LLF - 0.5*sum(log(h(t))) - ((nu2+1)/2)*sum(log(1 + (resid(t).^2)./(h(t)*(nu2-2)) ));
+    LLF = -LLF;
+elseif errortype == 3
+    Beta = (2^(-2/nu2) * gamma(1/nu2)/gamma(3/nu2))^(0.5);
+    LLF = (Tau * log(nu2)) - (Tau*log(Beta)) - (Tau*gammaln(1/nu2)) - Tau*(1+1/nu2)*log(2);
+    LLF = LLF - 0.5 * sum(log(h(t))) - 0.5 * sum((abs(resid(t)./(sqrt(h(t))*Beta))).^nu2);
+    LLF = -LLF;
+elseif errortype == 4
+    stdresid = resid(t)./sqrt(h(t));
+    LLF = +0.5*sum(log(h)) + skewtdis_LL([nu2;lambda2], stdresid);
+    if isnan(LLF)
+        LLF=1e6;
+    end
+end
+
+
+
+if nargout > 1
+    likelihoods=zeros(T,1);
+    if errortype == 1
+        likelihoods = 0.5 * ((log(h(t))) + ((resid(t).^2)./h(t)) + log(2*pi));
+        likelihoods = -likelihoods;
+    elseif errortype == 2
+        %     following row modification to original (does not exist in Sheppards
+        %     code):
+        nu = remainingparams(length(remainingparams));
+        %%
+        likelihoods = gammaln(0.5*(nu+1)) - gammaln(nu/2) - 1/2*log(pi*(nu-2))...
+            - 0.5*(log(h(t))) - ((nu+1)/2)*(log(1 + (resid(t).^2)./(h(t)*(nu-2)) ));
+        likelihoods = -likelihoods;
+    elseif errortype == 3
+        %     following row modification to original (does not exist in Sheppards
+        %     code):
+        nu = remainingparams(length(remainingparams));
+        %%
+        Beta = (2^(-2/nu) * gamma(1/nu)/gamma(3/nu))^(0.5);
+        likelihoods = log(nu)-log(Beta)-log(2)*(1+1/nu)-gammaln(1/nu) - 0.5 * log(h(t)) ...
+            - 0.5 * ((abs(resid(t)./(sqrt(h(t))*Beta))).^nu);
+        likelihoods = -likelihoods;
+    elseif errortype == 4
+        stdresid = resid(t)./sqrt(h(t));
+        [temp,likelihoods]=skewtdis_LL([nu2;lambda2], stdresid);
+        likelihoods= likelihoods+0.5*log(h(t));
+    end
+    Ht=h(t);
+end
+
+
+if isreal(parameters)==0;
+   LLF = 1e6;
+elseif isreal(LLF)==0;
+   LLF = 1e7;
+elseif isnan(LLF)
+   LLF = 1e8;
+elseif isinf(LLF)
+   LLF = 1e9;
+end
+
+resid=resid(t);
+
+

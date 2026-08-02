@@ -1,0 +1,30 @@
+function [c,ceq]=ar_multigarch_nonlincon(params, data, p , o, q, garchtype, errortype, arlag, const)
+
+% Helper function for ar_multigarch_grm; sets some constraints
+%
+% constraints:
+%             for all:                 sum of abs(AR)-coefficients <0
+%             additional student-t:    nu < 150
+%             additional GED:          nu < 10
+%             additional skew-t:       -.999 < lambda < 0.999;
+%
+% Author: Martin Grziska, 05/20/2010
+
+
+s=size(params,1);
+
+if errortype == 1
+    c = sum(abs(params(s-arlag+1:s))) - (1-1e-6);
+elseif errortype == 2
+    c = sum(abs(params(s-1-arlag+1:s-1))) - (1-1e-6);
+elseif errortype == 3
+    c = sum(abs(params(s-1-arlag+1:s-1))) - (1-1e-6);
+elseif errortype == 4
+    c(1) = sum(abs(params(s-2-arlag+1:s-2))) - (1-1e-6);
+    c(2) = abs(params(end)) - (1-1e-3);
+end
+
+% additional constraint GARCH>0.8
+c(end) = params(1+p+o+q) -
+
+ceq = 0;
