@@ -1,0 +1,13 @@
+# Generated research artifacts
+results/
+data/processed/
+data/raw/*
+!data/raw/README.md
+
+# MATLAB transient files
+*.asv
+*.autosave
+*.m~
+slprj/
+codegen/
+/MathWorks/

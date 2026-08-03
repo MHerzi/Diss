@@ -1,0 +1,9 @@
+function adapter = adapter()
+%ADAPTER Return the common pipeline contract for univariate GARCH.
+
+adapter = struct( ...
+    'Name', "univariateGarch", ...
+    'Fit', @diss.models.univariateGarch.fit, ...
+    'Forecast', @diss.models.univariateGarch.forecast);
+
+end

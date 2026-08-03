@@ -2,6 +2,8 @@ function results = benchmarkDccForecastPath
 %BENCHMARKDCCFORECASTPATH Compare full-path and ring-buffer forecasting.
     repositoryRoot = fileparts(fileparts(mfilename('fullpath')));
     addpath(repositoryRoot);
+    addpath(fullfile(repositoryRoot, 'legacy'));
+    addpath(fullfile(repositoryRoot, 'src'));
     previousState = rng(6632, 'twister');
     cleaner = onCleanup(@() rng(previousState));
     observationCount = 1500;

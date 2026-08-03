@@ -1,5 +1,7 @@
 function results = benchmarkCopulaParameterPath
 %BENCHMARKCOPULAPARAMETERPATH Compare k-means and direct median paths.
+    repositoryRoot = fileparts(fileparts(mfilename('fullpath')));
+    addpath(fullfile(repositoryRoot, 'legacy'));
     previousState = rng(19371, 'twister');
     cleaner = onCleanup(@() rng(previousState));
     data = rand(600, 6);

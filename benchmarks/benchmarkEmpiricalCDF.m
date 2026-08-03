@@ -2,6 +2,8 @@ function results = benchmarkEmpiricalCDF
 %BENCHMARKEMPIRICALCDF Compare legacy and vectorized PIT ranking.
     repositoryRoot = fileparts(fileparts(mfilename('fullpath')));
     addpath(repositoryRoot);
+    addpath(fullfile(repositoryRoot, 'legacy'));
+    addpath(fullfile(repositoryRoot, 'src'));
     previousState = rng(3351, 'twister');
     cleaner = onCleanup(@() rng(previousState));
     data = randn(5000, 20);

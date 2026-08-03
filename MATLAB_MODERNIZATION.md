@@ -22,7 +22,7 @@ current MATLAB numerical practices while retaining R2021a compatibility.
   calls with the equivalent cross-sectional median distance and `movsum`.
 - Marginal-model candidate searches can skip Hessian, score, and robust
   covariance calculations. Full inference remains the default for final fits.
-- `MainFile.m`, `setInputs.m`, and the multivariate backtest contain fixes
+- `legacy/MainFile.m`, `legacy/setInputs.m`, and the multivariate backtest contain fixes
   for invalid script control flow, input parsing, AR-lag alignment, dimensions,
   misspelled variables, and incorrect function declarations.
 
@@ -31,19 +31,24 @@ current MATLAB numerical practices while retaining R2021a compatibility.
 Run from the repository root:
 
 ```matlab
-addpath(pwd)
-addpath(fullfile(pwd, "tests"))
-results = runtests(fullfile(pwd, "tests"));
-assertSuccess(results)
+addpath(fullfile(pwd, "tools"))
+results = runAllTests();
 ```
 
-The suite contains 23 tests covering numerical equivalence of all four DCC
-variants, DCC forecasts, all supported copula families, Monte Carlo covariance
-and VaR behavior, the Patton parameter path, empirical CDF behavior, and legacy
-`rho2theta` ordering. Twenty-one tests completed successfully in MATLAB R2021a.
+The original modernization suite contained 23 tests covering numerical
+equivalence of all four DCC variants, DCC forecasts, all supported copula
+families, Monte Carlo covariance and VaR behavior, the Patton parameter path,
+empirical CDF behavior, and legacy `rho2theta` ordering. Twenty-one tests
+completed successfully in MATLAB R2021a.
 The two Patton reference tests were added after the local MATLAB launcher began
 blocking during initialization; they pass the standalone MATLAB Code Analyzer
 but still need one runtime execution when MATLAB can initialize normally.
+
+The package-pipeline migration expands the suite to 61 test functions in
+`tests/unit`, `tests/regression`, and `tests/integration`. It adds schema
+migration, adapter/API equivalence, deterministic manifests, compact window
+artifacts, recursive DCC equivalence, univariate GARCH, standardized Student-t
+transforms, and static Gaussian-copula pipeline coverage.
 
 The maximum relative discrepancy against saved legacy copula results is
 `1.03e-14`; the DCC regression tolerance is `1e-10`.
@@ -59,6 +64,7 @@ benchmarkDccForecastPath
 benchmarkVaRQuantiles
 benchmarkEmpiricalCDF
 benchmarkCopulaParameterPath
+benchmarkRecursiveDccState
 ```
 
 Measured results:

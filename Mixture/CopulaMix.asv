@@ -1,9 +1,0 @@
-
-function [LL_mix,Output1, Output2, weight] = CopulaMix(weight,data)
-
-
-[Output1 LL1 exitflag1 numParam1] = copulafitmultivariat('clayton', data);
-[Output2 LL2 exitflag2 numParam2] = copulafitmultivariat('gumbel', data);
-
-LL_mix = weight(1)*LL1+weight(2)*LL2;
-LL_mix = -LL_mix;

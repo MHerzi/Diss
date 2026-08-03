@@ -1,0 +1,9 @@
+function adapter = adapter()
+%ADAPTER Return the common pipeline contract for static multi-copulas.
+
+adapter = struct( ...
+    'Name', "multiCopula", ...
+    'Fit', @diss.models.multiCopula.fit, ...
+    'Forecast', @diss.models.multiCopula.forecast);
+
+end

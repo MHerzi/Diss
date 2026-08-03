@@ -1,6 +1,8 @@
 function results = benchmarkAnalyticMultiGarchVaR()
 %BENCHMARKANALYTICMULTIGARCHVAR Compare analytic and Monte Carlo Gaussian VaR.
 
+repositoryRoot = fileparts(fileparts(mfilename('fullpath')));
+addpath(fullfile(repositoryRoot, 'legacy'));
 previousState = rng(2608, 'twister');
 cleanup = onCleanup(@() rng(previousState));
 forecastCount = 20;

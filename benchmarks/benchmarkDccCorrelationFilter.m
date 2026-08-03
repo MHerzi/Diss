@@ -2,6 +2,8 @@ function results = benchmarkDccCorrelationFilter
 %BENCHMARKDCCCORRELATIONFILTER Compare old and modernized DCC objectives.
     repositoryRoot = fileparts(fileparts(mfilename('fullpath')));
     addpath(repositoryRoot);
+    addpath(fullfile(repositoryRoot, 'legacy'));
+    addpath(fullfile(repositoryRoot, 'src'));
 
     previousState = rng(4129, 'twister');
     cleaner = onCleanup(@() rng(previousState));

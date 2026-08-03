@@ -1,0 +1,9 @@
+function adapter = adapter()
+%ADAPTER Return the common pipeline contract for Delta-Normal.
+
+adapter = struct( ...
+    'Name', "deltaNormal", ...
+    'Fit', @diss.models.deltaNormal.fit, ...
+    'Forecast', @diss.models.deltaNormal.forecast);
+
+end

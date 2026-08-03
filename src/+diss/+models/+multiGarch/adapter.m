@@ -1,0 +1,9 @@
+function adapter = adapter()
+%ADAPTER Return the common pipeline contract for Multi-GARCH.
+
+adapter = struct( ...
+    'Name', "multiGarch", ...
+    'Fit', @diss.models.multiGarch.fit, ...
+    'Forecast', @diss.models.multiGarch.forecast);
+
+end

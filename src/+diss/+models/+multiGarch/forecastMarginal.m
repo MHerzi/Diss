@@ -1,0 +1,9 @@
+function [meanForecast, meanSquareError, varianceForecast] = ...
+    forecastMarginal(model, returns, residuals, variances)
+%FORECASTMARGINAL Compatibility wrapper for diss.marginal.forecastOneStep.
+
+[meanForecast, meanSquareError, varianceForecast] = ...
+    diss.marginal.forecastOneStep( ...
+    model, returns, residuals, variances);
+
+end

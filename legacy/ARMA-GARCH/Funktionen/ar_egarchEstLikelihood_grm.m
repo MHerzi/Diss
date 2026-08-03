@@ -1,0 +1,149 @@
+function [LLF, h, likelihoods]= ar_egarchEstLikelihood_grm(parameters,data,p,o,q,errortype,arlag, const)
+% PURPOSE:
+%     EGARCHLIKELIHOOD(P,Q) likelihood function.  Helper function to EGARCH
+%
+% USAGE:
+%     [LLF, h, likelihoods]= egarchlikelihood(parameters,data,p,q,T,stdEstimate,errortype);
+%
+% INPUTS:
+%     parameters:A vector of parameters,1+2p+q, for the terms in the EGARCH model below
+%     data: T by 1 set of residuals
+%     P: Non-negative, scalar integer representing a model order of the ARCH
+%         process
+%     Q: Positive, scalar integer representing a model order of the GARCH
+%         process: Q is the number of lags of the lagged conditional variances included
+%         Can be empty([]) for ARCH process
+%     T: Lenth of data
+%     stdEstimate: std of data
+%     errortype:  A number,
+%            1 for - Gaussian Innovations
+%            2 for - T-distributed errors
+%            3 for - General Error Distribution
+%
+% OUTPUTS:
+%     LLF = the loglikelihood evaluated at the parameters
+%     h = the estimated time varying VARIANCES
+%     likelihoods = A T by 1+2p+q matrix of likelihoods for m testing and robuse SE estimation
+%
+% COMMENTS:
+%   EGARCH(P,Q) the following(wrong) constratins are used(they are right for the (1,1) case or any Arch case
+%     (1) nu>2 of Students T and nu>1 for GED
+%
+%   The time-conditional variance, H(t), of a EGARCH(P,Q) process is modeled
+%   as follows:
+%
+%     log H(t) = Omega + Alpha(1)*r_{t-1}/(sqrt(h(t-1))) + Alpha(2)*r_{t-2}^2/(sqrt(h(t-2))) +...
+%                    + Alpha(P)*r_{t-p}^2/(sqrt(h(t-p)))+ Absolute Alpha(1)* abs(r_{t-1}^2/(sqrt(h(t-1)))) + ...
+%                    + Absolute Alpha(P)* abs(r_{t-p}^2/(sqrt(h(t-p)))) +  Beta(1)* log(H(t-1))
+%                    + Beta(2)*log(H(t-2))+...+ Beta(Q)*log(H(t-q))
+%
+% Has a mex file available in egarchcore.c.  You should compile it(or use the binaries available)
+%
+% Author: Martin Grziska based on a code of Kevin Sheppard
+% kevin.sheppard@economics.ox.ac.uk
+% Revision: 2    Date: 12/31/2001
+
+b0 = parameters(1+p+o+q+1:1+p+o+q+arlag);
+n = length(data);
+if const == 1
+    nlag = arlag-1;
+    x = [ones(n,1) mlag(data,nlag)];
+else
+    nlag = arlag;
+    x = mlag(data,nlag);
+end
+x = trimr(x,nlag,0);
+resid = trimr(data,nlag,0);
+resid = resid - x*b0;
+
+[r,c]=size(parameters);
+if c>r
+    parameters=parameters';
+end
+
+if errortype == 1
+    parameters = parameters(1:1+p+o+q);
+elseif errortype ==2;
+    nu=parameters(end);
+    parameters = parameters(1:(p+o+q+1));
+elseif errortype ==3;
+    nu=parameters(end);
+    parameters = parameters(1:(p+o+q+1));
+elseif errortype ==4;
+    nu=parameters(end-1);
+    lambda = parameters(end);
+    parameters = parameters(1:(p+o+q+1));
+end
+
+if isempty(q) || q==0
+    m=max(p,o);
+else
+    m  =  max([p,q,o]);
+end
+stdEstimate = std(resid);
+resid = [stdEstimate;resid];
+
+T=size(resid,1);
+
+% h = egarchcore_grm(resid, parameters, stdEstimate, p, o, q ,m , T, errortype);
+h = egarchcore(resid, parameters, stdEstimate, p, o, q ,m , T);
+
+% temp=min(h(h>0))/100;
+% h(isnan(h))=temp;
+% h(isinf(h))=temp;
+% h(h<=0)=temp;
+
+Tau = T-m;
+LLF = 0;
+t = (m + 1):T;
+if errortype == 1
+    LLF  =  sum(log(h(t))) + sum((resid(t).^2)./h(t));
+    LLF  =  0.5 * (LLF  +  (T - m)*log(2*pi));
+elseif errortype == 2
+    LLF = Tau*gammaln(0.5*(nu+1)) - Tau*gammaln(nu/2) - Tau/2*log(pi*(nu-2));
+    LLF = LLF - 0.5*sum(log(h(t))) - ((nu+1)/2)*sum(log(1 + (resid(t).^2)./(h(t)*(nu-2)) ));
+    LLF = -LLF;
+elseif errortype == 3
+    Beta = (2^(-2/nu) * gamma(1/nu)/gamma(3/nu))^(0.5);
+    LLF = (Tau * log(nu)) - (Tau*log(Beta)) - (Tau*gammaln(1/nu)) - Tau*(1+1/nu)*log(2);
+    LLF = LLF - 0.5 * sum(log(h(t))) - 0.5 * sum((abs(resid(t)./(sqrt(h(t))*Beta))).^nu);
+    LLF = -LLF;
+else
+    stdresid = resid(t)./sqrt(h(t));
+    LLF = 0.5*sum(log(h(t))) + ar_skewtdis_LL_grm([nu;lambda], stdresid);
+end
+
+
+if nargout > 2
+    likelihoods = zeros(size(T));
+    if errortype == 1
+        likelihoods = 0.5 * ((log(h(t))) + ((resid(t).^2)./h(t)) + log(2*pi));
+        likelihoods = -likelihoods;
+    elseif errortype == 2
+        likelihoods = gammaln(0.5*(nu+1)) - gammaln(nu/2) - 1/2*log(pi*(nu-2))...
+            - 0.5*(log(h(t))) - ((nu+1)/2)*(log(1 + (resid(t).^2)./(h(t)*(nu-2)) ));
+        likelihoods = -likelihoods;
+    elseif errortype == 3
+        Beta = (2^(-2/nu) * gamma(1/nu)/gamma(3/nu))^(0.5);
+        likelihoods = log(nu)-log(Beta)-log(2)*(1+1/nu)-gammaln(1/nu) - 0.5 * log(h(t)) - 0.5 * ((abs(resid(t)./(sqrt(h(t))*Beta))).^nu);
+        likelihoods = -likelihoods;
+    else
+        [temp,likelihoods]=ar_skewtdis_LL_grm([nu;lambda], stdresid);
+        likelihoods= likelihoods+0.5*log(h(t));
+    end
+end
+
+
+
+if isreal(parameters)==0;
+    LLF = 1e6;
+elseif isreal(LLF)==0;
+    LLF = 1e7;
+elseif isnan(LLF)
+    LLF = 1e8;
+elseif isinf(LLF)
+    LLF = 1e9;
+end
+
+resid=resid(t);
+h=h(t);

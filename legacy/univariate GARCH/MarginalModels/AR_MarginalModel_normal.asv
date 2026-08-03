@@ -1,0 +1,391 @@
+function [Output] = AR_MarginalModel_normal(data,archP,garchQ,const,arlag)
+% % % % %
+% Estimate marginal Distribution for univariate time series
+%
+% USAGE:
+%        [Output] = AR_MarginalModel_normal(data,archP,garchQ,const,arlag)
+%
+% INPUTS:
+%         data:   t x k matirx of return series
+%         const:  1 if univariate AR-GARH is to be estimated with const,
+%                 else 0
+%         arlag:  # of lags in AR(k)
+%         archP:  # of ARCH lags
+%         garchQ: # of GARCH lags
+% OUTPUT:
+%        Structure
+%         Output.Params:       params of estimated ARE-GARCH;
+%         Output.ParamsGARCH:  parameters_GARCH_Gauss(1:end-nGARCH_Gauss);
+%         Output.LLF:          neg log-likelihoodLLF_GARCH_Gauss;
+%         Output.stderrors:    stderrors of GARCH;
+%         Output.robustSE:     robustSE (White);
+%         Output.ht:           estimated Variance;
+%         Output.Scores:       scores
+%         Output.Innovations:  residuals of AR(k)-GARCH;
+%         Output.GARCH:        string shows estimated garchtype (GARCH; EGARCH;
+%                              TGARCH; GJRGARCH)
+%         Output.U:            unif(0,1)
+%         Output.Tstat:        robust Tstat (White);
+%         Output.garchtype:    # of garchtype
+%         Output.leverage:     1 if GARCH is estimated with leverage term;
+%                              else 0
+%         Output.errortype:    errortype for GARCH estimations (1:NORMAL, 2:
+%                              STUDENTST, 3: GED, 4:SKEWT
+%         Output.likelihood:   negative log-likelihoods
+%         Output. EXITFLAG
+%
+% Author: Martin Grziska, 03/19/2010
+
+[t,k]=size(data);
+
+% Fitte die verschiedenen GARCH-Modelle
+% 1.GARCH-Gauss
+for j=1:k;
+    for i=1:arlag
+        [parameters_GARCH_Gauss, LLF_GARCH_Gauss(i), stderrors_GARCH_Gauss, robustSE_GARCH_Gauss, ht_GARCH_Gauss, scores_GARCH_Gauss, resid_GARCH_Gauss, likelihood_GARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,0,garchQ,'GARCH','NORMAL',i,const);
+        if EXITFLAG <= 0
+            BIC_GARCH_Gauss(i) = 1e100;
+        else
+            BIC_GARCH_Gauss(i) = 2*LLF_GARCH_Gauss(i) + log(t)*size(parameters_GARCH_Gauss,1);
+        end
+        if sum(parameters_GARCH_Gauss == 0)>= 1
+            BIC_GARCH_Gauss(i) = 1e100;
+        end
+    end
+    [m,nGARCH_Gauss] = min(BIC_GARCH_Gauss);
+    [parameters_GARCH_Gauss, LLF_GARCH_Gauss, stderrors_GARCH_Gauss, robustSE_GARCH_Gauss, ht_GARCH_Gauss, scores_GARCH_Gauss, resid_GARCH_Gauss, likelihood_GARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,0,garchQ,'GARCH','NORMAL',nGARCH_Gauss,const);
+    if EXITFLAG <= 0
+        BIC_GARCH_Gauss = 1e100;
+    else
+        BIC_GARCH_Gauss = 2*LLF_GARCH_Gauss+ log(t)*size(parameters_GARCH_Gauss,1);
+    end
+    Tstatistic_GARCH_Gauss=parameters_GARCH_Gauss./diag(robustSE_GARCH_Gauss).^0.5;
+    % H0: keine autocorrelation - in diesem Fall der quadrierten
+    % standardisierten Residuen
+    stdresid = resid_GARCH_Gauss./sqrt(ht_GARCH_Gauss);
+    result_stderrors_GARCH_Gauss=lmtest2(stdresid,10);
+    % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+    % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+    % wird abgelehnt
+    [statistic_GARCH_Gauss, siglevel_GARCH_Gauss, KolmH_GARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+    U_GARCH_Gauss=zeros(size(stdresid,1),1);
+    for i=1:size(stdresid,1)
+        U_GARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+    end
+    [statistic_GARCH_Gauss_U, siglevel_GARCH_Gauss_U, H_GARCH_Gauss_U]=kolmogorov(U_GARCH_Gauss,.05,'unifcdf',0,1);
+    U_GARCH_Gauss_mean = U_GARCH_Gauss-mean(U_GARCH_Gauss);
+    U_GARCH_Gauss_mean2 = (U_GARCH_Gauss-mean(U_GARCH_Gauss)).^2;
+    U_GARCH_Gauss_mean3 = (U_GARCH_Gauss-mean(U_GARCH_Gauss)).^3;
+    U_GARCH_Gauss_mean4 = (U_GARCH_Gauss-mean(U_GARCH_Gauss)).^4;
+    % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+    [H_GARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+    
+    
+    % % % 2.EGARCH-Gauss
+    for i=1:arlag
+        [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss(i), stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'EGARCH','NORMAL',i,const);
+        if EXITFLAG <= 0
+            BIC_EGARCH_Gauss(i) = 1e100;
+        else
+            BIC_EGARCH_Gauss(i) = -2*LLF_EGARCH_Gauss(i)+log(t)*size(parameters_EGARCH_Gauss,1);
+        end
+    end
+    [m,nEGARCH_Gauss] = min(BIC_EGARCH_Gauss);
+    [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss, stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'EGARCH','NORMAL',nEGARCH_Gauss,const);
+    if EXITFLAG <= 0
+        BIC_EGARCH_Gauss = 1e100;
+    else
+        BIC_EGARCH_Gauss = 2*LLF_EGARCH_Gauss+log(t)*size(parameters_EGARCH_Gauss,1);
+    end
+    Tstatistic_EGARCH_Gauss=parameters_EGARCH_Gauss./diag(robustSE_EGARCH_Gauss).^0.5;
+    % H0: keine autocorrelation - in diesem Fall der quadrierten
+    % standardisierten Residuen
+    stdresid = resid_EGARCH_Gauss./sqrt(ht_EGARCH_Gauss);
+    result_stderrors_EGARCH_Gauss=lmtest2(stdresid,10);
+    % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+    % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+    % wird abgelehnt
+    [statistic_EGARCH_Gauss, siglevel_EGARCH_Gauss, KolmH_EGARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+    U_EGARCH_Gauss=zeros(size(stdresid,1),1);
+    for i=1:size(stdresid,1)
+        U_EGARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+    end
+    [statistic_EGARCH_Gauss_U, siglevel_EGARCH_Gauss_U, H_EGARCH_Gauss_U]=kolmogorov(U_EGARCH_Gauss,.05,'unifcdf',0,1);
+    U_EGARCH_Gauss_mean = U_EGARCH_Gauss-mean(U_EGARCH_Gauss);
+    U_EGARCH_Gauss_mean2 = (U_EGARCH_Gauss-mean(U_EGARCH_Gauss)).^2;
+    U_EGARCH_Gauss_mean3 = (U_EGARCH_Gauss-mean(U_EGARCH_Gauss)).^3;
+    U_EGARCH_Gauss_mean4 = (U_EGARCH_Gauss-mean(U_EGARCH_Gauss)).^4;
+    % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+    [H_EGARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+    
+    
+    
+    % 3.TGARCH-Gauss
+            for i=1:arlag
+                [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss(i), stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'TGARCH','NORMAL',i,const);
+                if EXITFLAG <= 0
+                    BIC_TGARCH_Gauss(i) = 1e100;
+                else
+                    BIC_TGARCH_Gauss(i) = 2*LLF_TGARCH_Gauss(i)+log(t)*size(parameters_TGARCH_Gauss,1);
+                end
+                if sum(parameters_TGARCH_Gauss == 0)>= 1
+                    BIC_TGARCH_Gauss(i) = 1e100;
+                end
+            end
+            [m,nTGARCH_Gauss] = min(BIC_TGARCH_Gauss);
+            [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss, stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'TGARCH','NORMAL',nTGARCH_Gauss,const);
+            if EXITFLAG <= 0
+                BIC_TGARCH_Gauss = 1e100;
+            else
+                BIC_TGARCH_Gauss = 2*LLF_TGARCH_Gauss+log(t)*size(parameters_TGARCH_Gauss,1);
+            end
+            Tstatistic_TGARCH_Gauss=parameters_TGARCH_Gauss./diag(robustSE_TGARCH_Gauss).^0.5;
+            % H0: keine autocorrelation - in diesem Fall der quadrierten
+            % standardisierten Residuen
+            stdresid = resid_TGARCH_Gauss./sqrt(ht_TGARCH_Gauss);
+            result_stderrors_TGARCH_Gauss=lmtest2(stdresid,10);
+            % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+            % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+            % wird abgelehnt
+            [statistic_TGARCH_Gauss, siglevel_TGARCH_Gauss, KolmH_TGARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+            U_TGARCH_Gauss=zeros(size(stdresid,1),1);
+            for i=1:size(stdresid,1)
+                U_TGARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+            end
+            [statistic_TGARCH_Gauss_U, siglevel_TGARCH_Gauss_U, H_TGARCH_Gauss_U]=kolmogorov(U_TGARCH_Gauss,.05,'unifcdf',0,1);
+            U_TGARCH_Gauss_mean = U_TGARCH_Gauss-mean(U_TGARCH_Gauss);
+            U_TGARCH_Gauss_mean2 = (U_TGARCH_Gauss-mean(U_TGARCH_Gauss)).^2;
+            U_TGARCH_Gauss_mean3 = (U_TGARCH_Gauss-mean(U_TGARCH_Gauss)).^3;
+            U_TGARCH_Gauss_mean4 = (U_TGARCH_Gauss-mean(U_TGARCH_Gauss)).^4;
+            % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+            [H_TGARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+    
+    
+    % 4.GJRGARCH-Gauss
+    for i=1:arlag
+        [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss(i), stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'GJRGARCH','NORMAL',i,const);
+        if EXITFLAG <= 0
+            BIC_GARCH_Gauss(i) = 1e100;
+        else
+            BIC_GJRGARCH_Gauss(i) = 2*LLF_GJRGARCH_Gauss(i)+log(t)*size(parameters_GJRGARCH_Gauss,1);
+        end
+    end
+    [m,nGJRGARCH_Gauss] = min(BIC_GJRGARCH_Gauss);
+    [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss, stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,archP,garchQ,'GJRGARCH','NORMAL',nGJRGARCH_Gauss,const);
+    if EXITFLAG <= 0
+        BIC_GJRGARCH_Gauss = 1e100;
+    else
+        BIC_GJRGARCH_Gauss = -2*LLF_GJRGARCH_Gauss+log(t)*size(parameters_GJRGARCH_Gauss,1);
+    end
+    Tstatistic_GJRGARCH_Gauss=parameters_GJRGARCH_Gauss./diag(robustSE_GJRGARCH_Gauss).^0.5;
+    % H0: keine autocorrelation - in diesem Fall der quadrierten
+    % standardisierten Residuen
+    stdresid = resid_GJRGARCH_Gauss./sqrt(ht_GJRGARCH_Gauss);
+    result_stderrors_GJRGARCH_Gauss=lmtest2(stdresid,10);
+    % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+    % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+    % wird abgelehnt
+    [statistic_GJRGARCH_Gauss, siglevel_GJRGARCH_Gauss, KolmH_GJRGARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+    U_GJRGARCH_Gauss=zeros(size(stdresid,1),1);
+    for i=1:size(stdresid,1)
+        U_GJRGARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+    end
+    [statistic_GJRGARCH_Gauss_U, siglevel_GJRGARCH_Gauss_U, H_GJRGARCH_Gauss_U]=kolmogorov(U_GJRGARCH_Gauss,.05,'unifcdf',0,1);
+    U_GJRGARCH_Gauss_mean = U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss);
+    U_GJRGARCH_Gauss_mean2 = (U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss)).^2;
+    U_GJRGARCH_Gauss_mean3 = (U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss)).^3;
+    U_GJRGARCH_Gauss_mean4 = (U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss)).^4;
+    % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+    [H_GJRGARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+    
+    
+    BIC_gesamt_Gauss = [BIC_GARCH_Gauss;BIC_EGARCH_Gauss;BICBIC_GJRGARCH_Gauss];
+    optGARCH_Gauss = find(BIC_gesamt_Gauss == min(BIC_gesamt_Gauss))
+    BIC_NORMAL = BIC_gesamt_Gauss(optGARCH_Gauss);
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+    % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % % %
+    % % % Bestimmung des optimalen Modells über alle Modelle mit allen
+    % Verteilungen
+    BIC_ALL_opt{j} = [BIC_gesamt_Gauss];
+    [m,n] = min(BIC_ALL_opt{j});
+    BIC_opt{j}=n;
+end
+
+for j=1:k
+    if BIC_opt{j}==1
+        [parameters_GARCH_Gauss, LLF_GARCH_Gauss, stderrors_GARCH_Gauss, robustSE_GARCH_Gauss, ht_GARCH_Gauss, scores_GARCH_Gauss, resid_GARCH_Gauss, likelihood_GARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,0,garchQ,'GARCH','NORMAL',nGARCH_Gauss,const);
+        BIC_GARCH_Gauss = 2*LLF_GARCH_Gauss+ log(t)*size(parameters_GARCH_Gauss,1);
+        Tstatistic_GARCH_Gauss=parameters_GARCH_Gauss./diag(robustSE_GARCH_Gauss).^0.5;
+        % H0: keine autocorrelation - in diesem Fall der quadrierten
+        % standardisierten Residuen
+        stdresid = resid_GARCH_Gauss./sqrt(ht_GARCH_Gauss);
+        result_stderrors_GARCH_Gauss=lmtest2(stdresid,10);
+        % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+        % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+        % wird abgelehnt
+        [statistic_GARCH_Gauss, siglevel_GARCH_Gauss, KolmH_GARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+        U_GARCH_Gauss=zeros(size(stdresid,1),1);
+        for i=1:size(stdresid,1)
+            U_GARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+        end
+        [statistic_GARCH_Gauss_U, siglevel_GARCH_Gauss_U, H_GARCH_Gauss_U]=kolmogorov(U_GARCH_Gauss,.05,'unifcdf',0,1);
+        U_GARCH_Gauss_mean = U_GARCH_Gauss-mean(U_GARCH_Gauss);
+        U_GARCH_Gauss_mean2 = (U_GARCH_Gauss-mean(U_GARCH_Gauss)).^2;
+        U_GARCH_Gauss_mean3 = (U_GARCH_Gauss-mean(U_GARCH_Gauss)).^3;
+        U_GARCH_Gauss_mean4 = (U_GARCH_Gauss-mean(U_GARCH_Gauss)).^4;
+        % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+        [H_GARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+        Output{j}.Params = parameters_GARCH_Gauss;
+        Output{j}.ParamsGARCH = parameters_GARCH_Gauss(1:end-nGARCH_Gauss-const);
+        Output{j}.LLF = LLF_GARCH_Gauss;
+        Output{j}.stderrors = stderrors_GARCH_Gauss;
+        Output{j}.robustSE = robustSE_GARCH_Gauss;
+        Output{j}.ht = ht_GARCH_Gauss;
+        Output{j}.Scores = scores_GARCH_Gauss;
+        Output{j}.Innovations = resid_GARCH_Gauss;
+        Output{j}.GARCH = 'GARCH_GAUSS';
+        Output{j}.U = U_GARCH_Gauss;
+        Output{j}.Tstat = Tstatistic_GARCH_Gauss;
+        Output{j}.garchtype = 1;
+        Output{j}.leverage = 0;
+        Output{j}.errortype = 1;
+        Output{j}.arlag = nGARCH_Gauss;
+        Output{j}.likelihoods = likelihood_GARCH_Gauss;
+        Output{j}.EXITFLAG = EXITFLAG;
+        Output{j}.data = data(:,j);
+        Output{j}.BIC =  2*LLF_GARCH_Gauss+ log(t)*size(parameters_GARCH_Gauss,1);
+        % % % 5.EGARCH-Gauss
+    elseif BIC_opt{j}==2
+        [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss, stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'EGARCH','NORMAL',nEGARCH_Gauss,const);
+        BIC_EGARCH_Gauss = 2*LLF_EGARCH_Gauss+log(t)*size(parameters_EGARCH_Gauss,1);
+        Tstatistic_EGARCH_Gauss=parameters_EGARCH_Gauss./diag(robustSE_EGARCH_Gauss).^0.5;
+        % H0: keine autocorrelation - in diesem Fall der quadrierten
+        % standardisierten Residuen
+        stdresid = resid_EGARCH_Gauss./sqrt(ht_EGARCH_Gauss);
+        result_stderrors_EGARCH_Gauss=lmtest2(stdresid,10);
+        % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+        % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+        % wird abgelehnt
+        [statistic_EGARCH_Gauss, siglevel_EGARCH_Gauss, KolmH_EGARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+        U_EGARCH_Gauss=zeros(size(stdresid,1),1);
+        for i=1:size(stdresid,1)
+            U_EGARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+        end
+        [statistic_EGARCH_Gauss_U, siglevel_EGARCH_Gauss_U, H_EGARCH_Gauss_U]=kolmogorov(U_EGARCH_Gauss,.05,'unifcdf',0,1);
+        U_EGARCH_Gauss_mean = U_EGARCH_Gauss-mean(U_EGARCH_Gauss);
+        U_EGARCH_Gauss_mean2 = (U_EGARCH_Gauss-mean(U_EGARCH_Gauss)).^2;
+        U_EGARCH_Gauss_mean3 = (U_EGARCH_Gauss-mean(U_EGARCH_Gauss)).^3;
+        U_EGARCH_Gauss_mean4 = (U_EGARCH_Gauss-mean(U_EGARCH_Gauss)).^4;
+        % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+        [H_EGARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+        Output{j}.Params=parameters_EGARCH_Gauss;
+        Output{j}.ParamsGARCH = parameters_EGARCH_Gauss(1:end-nEGARCH_Gauss-const);
+        Output{j}.LLF=LLF_EGARCH_Gauss;
+        Output{j}.stderrors=stderrors_EGARCH_Gauss;
+        Output{j}.robustSE=robustSE_EGARCH_Gauss;
+        Output{j}.ht=ht_EGARCH_Gauss;
+        Output{j}.Scores=scores_EGARCH_Gauss;
+        Output{j}.Innovations=resid_EGARCH_Gauss;
+        Output{j}.GARCH = 'EGARCH_GAUSS';
+        Output{j}.U = U_EGARCH_Gauss;
+        Output{j}.Tstat = Tstatistic_EGARCH_Gauss;
+        Output{j}.garchtype = 0;
+        Output{j}.leverage = 1;
+        Output{j}.errortype = 1;
+        Output{j}.arlag = nEGARCH_Gauss;
+        Outpur{j}.likelihoods = likelihood_EGARCH_Gauss;
+        Output{j}.EXITFLAG = EXITFLAG;
+        Output{j}.data = data(:,j);
+        Output{j}.BIC =  2*LLF_EGARCH_Gauss+ log(t)*size(parameters_EGARCH_Gauss,1);
+        
+        % 6.TGARCH-Gauss
+        %     elseif BIC_opt{j}==3
+        %         [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss, stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,1,garchQ,'TGARCH','NORMAL',nTGARCH_Gauss,const);
+        %         BIC_TGARCH_Gauss = 2*LLF_TGARCH_Gauss+log(t)*size(parameters_TGARCH_Gauss,1);
+        %         Tstatistic_TGARCH_Gauss=parameters_TGARCH_Gauss./diag(robustSE_TGARCH_Gauss).^0.5;
+        %         % H0: keine autocorrelation - in diesem Fall der quadrierten
+        %         % standardisierten Residuen
+        %         stdresid = resid_TGARCH_Gauss./sqrt(ht_TGARCH_Gauss);
+        %         result_stderrors_TGARCH_Gauss=lmtest2(stdresid,10);
+        %         % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+        %         % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+        %         % wird abgelehnt
+        %         [statistic_TGARCH_Gauss, siglevel_TGARCH_Gauss, KolmH_TGARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+        %         U_TGARCH_Gauss=zeros(size(stdresid,1),1);
+        %         for i=1:size(stdresid,1)
+        %             U_TGARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+        %         end
+        %         [statistic_TGARCH_Gauss_U, siglevel_TGARCH_Gauss_U, H_TGARCH_Gauss_U]=kolmogorov(U_TGARCH_Gauss,.05,'unifcdf',0,1);
+        %         U_TGARCH_Gauss_mean = U_TGARCH_Gauss-mean(U_TGARCH_Gauss);
+        %         U_TGARCH_Gauss_mean2 = (U_TGARCH_Gauss-mean(U_TGARCH_Gauss)).^2;
+        %         U_TGARCH_Gauss_mean3 = (U_TGARCH_Gauss-mean(U_TGARCH_Gauss)).^3;
+        %         U_TGARCH_Gauss_mean4 = (U_TGARCH_Gauss-mean(U_TGARCH_Gauss)).^4;
+        %         % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+        %         [H_TGARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+        %         Output{j}.Params=parameters_TGARCH_Gauss;
+        %         Output{j}.ParamsGARCH = parameters_TGARCH_Gauss(1:end-nTGARCH_Gauss-const);
+        %         Output{j}.LLF=LLF_TGARCH_Gauss;
+        %         Output{j}.stderrors=stderrors_TGARCH_Gauss;
+        %         Output{j}.robustSE=robustSE_TGARCH_Gauss;
+        %         Output{j}.ht=ht_TGARCH_Gauss;
+        %         Output{j}.Scores=scores_TGARCH_Gauss;
+        %         Output{j}.Innovations=resid_TGARCH_Gauss;
+        %         Output{j}.GARCH = 'TGARCH_GAUSS';
+        %         Output{j}.U = U_TGARCH_Gauss;
+        %         Output{j}.Tstat = Tstatistic_TGARCH_Gauss;
+        %         Output{j}.garchtype = 2;
+        %         Output{j}.leverage = 1;
+        %         Output{j}.errortype = 1;
+        %         Output{j}.arlag = nTGARCH_Gauss;
+        %         Outpur{j}.likelihoods = likelihood_TGARCH_Gauss
+        %         Output{j}.EXITFLAG = EXITFLAG;
+        %         Output{j}.data = data(:,j);
+        %                 Output{j}.BIC =  2*LLF_TGARCH_Gauss+ log(t)*size(parameters_TGARCH_Gauss,1);
+        
+        
+        % 7.GJRGARCH-Gauss
+    elseif BIC_opt{j}==3
+        [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss, stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),archP,archP,garchQ,'GJRGARCH','NORMAL',nGJRGARCH_Gauss,const);
+        BIC_GJRGARCH_Gauss = 2*LLF_GJRGARCH_Gauss+log(t)*size(parameters_GJRGARCH_Gauss,1);
+        Tstatistic_GJRGARCH_Gauss=parameters_GJRGARCH_Gauss./diag(robustSE_GJRGARCH_Gauss).^0.5;
+        % H0: keine autocorrelation - in diesem Fall der quadrierten
+        % standardisierten Residuen
+        stdresid = resid_GJRGARCH_Gauss./sqrt(ht_GJRGARCH_Gauss);
+        result_stderrors_GJRGARCH_Gauss=lmtest2(stdresid,10);
+        % H0: angenommene Verteilugn für ML-Schätzung entspricht der wahren
+        % Verteilung (in diesem Fall der Gauss; 0: H0 wird nicht abgelehnt; 1: H0
+        % wird abgelehnt
+        [statistic_GJRGARCH_Gauss, siglevel_GJRGARCH_Gauss, KolmH_GJRGARCH_Gauss]=kolmogorov(stdresid,.05,'norm_cdf');
+        U_GJRGARCH_Gauss=zeros(size(stdresid,1),1);
+        for i=1:size(stdresid,1)
+            U_GJRGARCH_Gauss(i,:)=norm_cdf(stdresid(i),0,1);
+        end
+        [statistic_GJRGARCH_Gauss_U, siglevel_GJRGARCH_Gauss_U, H_GJRGARCH_Gauss_U]=kolmogorov(U_GJRGARCH_Gauss,.05,'unifcdf',0,1);
+        U_GJRGARCH_Gauss_mean = U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss);
+        U_GJRGARCH_Gauss_mean2 = (U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss)).^2;
+        U_GJRGARCH_Gauss_mean3 = (U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss)).^3;
+        U_GJRGARCH_Gauss_mean4 = (U_GJRGARCH_Gauss-mean(U_GJRGARCH_Gauss)).^4;
+        % H0: Zeitreihe ist strict white noise; H=0 Nullhypothese wird akzeptiert
+        [H_GJRGARCH_Gauss_swn,pValue,Qstat,CriticalValue] = lbqtest(stdresid,10,.05,[]);
+        Output{j}.Params=parameters_GJRGARCH_Gauss;
+        Output{j}.ParamsGARCH = parameters_GJRGARCH_Gauss(1:end-nGJRGARCH_Gauss-const);
+        Output{j}.LLF=LLF_GJRGARCH_Gauss;
+        Output{j}.stderrors=stderrors_GJRGARCH_Gauss;
+        Output{j}.robustSE=robustSE_GJRGARCH_Gauss;
+        Output{j}.ht=ht_GJRGARCH_Gauss;
+        Output{j}.Scores=scores_GJRGARCH_Gauss;
+        Output{j}.Innovations=resid_GJRGARCH_Gauss;
+        Output{j}.GARCH = 'GJRGARCH_GAUSS';
+        Output{j}.U = U_GJRGARCH_Gauss;
+        Output{j}.Tstat = Tstatistic_GJRGARCH_Gauss;
+        Output{j}.garchtype = 8;
+        Output{j}.leverage = 1;
+        Output{j}.errortype = 1;
+        Output{j}.arlag = nGJRGARCH_Gauss;
+        Outpur{j}.likelihoods = likelihood_GJRGARCH_Gauss;
+        Output{j}.EXITFLAG = EXITFLAG;
+        Output{j}.datat = data(:,j);
+        Output{j}.BIC =  2*LLF_GJRGARCH_Gauss+ log(t)*size(parameters_GJRGARCH_Gauss,1);
+    end
+end
