@@ -11,3 +11,15 @@ data/raw/*
 slprj/
 codegen/
 /MathWorks/
+
+# Python transient files and environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+*.egg-info/

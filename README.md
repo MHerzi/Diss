@@ -1,10 +1,21 @@
-# GARCH and Copula dissertation code
+# GARCH and Copula dissertation code — Python modernization
 
-The maintained implementation is the MATLAB namespace in `src/+diss`.
-Historical functions and `MainFile.m` are isolated in `legacy` as a frozen
-reference and are not required by the canonical pipeline.
+The maintained implementation on this branch is the Python package in
+`src/diss`. Start with [`README_PYTHON.md`](README_PYTHON.md) and
+[`PYTHON_ARCHITECTURE.md`](PYTHON_ARCHITECTURE.md).
 
-## Start
+The modern MATLAB namespace in `src/+diss` remains available as a numerical
+reference. Historical functions and `MainFile.m` are isolated in `legacy`.
+
+## Python start
+
+```powershell
+python -m venv .venv
+.venv\Scripts\python -m pip install -e ".[test]"
+.venv\Scripts\python -m pytest
+```
+
+## MATLAB reference
 
 Create the MATLAB Project once from the repository root:
 
