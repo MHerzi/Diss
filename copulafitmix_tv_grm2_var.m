@@ -37,7 +37,7 @@
 %   Author: Martin Grziska based on a code of Valentin Braun
 % Änderung: die kmeans Spezifikation wurde durch die Originalspezifikation
 % Patton ersetzt
-function [CopParam_tv, Weights_tv, tv_faktor, LL_Mix, LL, AIC, BIC, CopParam_1, SE, x0] = copulafitmix_tv_grm2(family, data, Dynamic, Cop_Stat, PrtFig)
+function [CopParam_tv, Weights_tv, tv_faktor, LL_Mix, LL, AIC, BIC, CopParam_1, SE, x0] = copulafitmix_tv_grm2_var(family, data, Dynamic, Cop_Stat, PrtFig)
 
 
 % PrÃ¼fen der Input Parameter
@@ -50,7 +50,7 @@ function [CopParam_tv, Weights_tv, tv_faktor, LL_Mix, LL, AIC, BIC, CopParam_1, 
 %--------------------------------------------------------------------------
 for i = 1:nc
     switch family{i}
-        case {'gumbel' 'clayton' 'rotclayton'} % zeitvariabler Parameter wird entsprechend Patton (2006) kalibriert            
+        case {'gumbel' 'clayton' 'rotclayton'} % zeitvariabler Parameter wird entsprechend Patton (2006) kalibriert
             if strcmp(family{i},'rotclayton')
                 dataarchi = 1-data; %wenn rotated Clayton verwendet wird müssen unif(0,1)-Daten gedreht werden
             else
@@ -95,7 +95,7 @@ for i = 1:nc
             elseif strcmp(family{i}, 'clayton') || strcmp(family{i}, 'rotclayton')
                 Density_Func{i} = []; % Leere DichteFunktion Ã¼bergeben
             end
-            
+
         case 't' % Skalarversion
             % Startwerte des DoF der t-Copula berechnen
             [x0_Corr x0_DoF] = copulafit(family{i}, data);
@@ -149,7 +149,7 @@ for i = 1:nc
             Density_Func{i} = []; % Leere DichteFunktion Ã¼bergeben
             %             A = [1 1 zeros(1,6)]; % Constraint für DCC-Modell: a+b<1; Matlab: A*x0_total<b
             %             b = 1-1e-6;% Constraint für DCC-Modell: a+b<1; Matlab: A*x0_total<b
-            
+
         case 'gaussian' % Skalarversion
             % xo-Aufteilung: Formel 5, Capiello et al.(2006): a,g,b
             P{i} = 1; % Lags der Residuen

@@ -36,7 +36,7 @@ for j=1:k;
     LLF_GARCH_Gauss = zeros(arlag,1);
     %     teste Modell mit Gauss-Verteilung und bis zu arlag, arlags
     for i=1:arlag
-        [parameters_GARCH_Gauss, LLF_GARCH_Gauss(i), stderrors_GARCH_Gauss, robustSE_GARCH_Gauss, ht_GARCH_Gauss, scores_GARCH_Gauss, resid_GARCH_Gauss, likelihood_GARCH_Gauss, EXITFLAG] = ar_multigarch_grm(data(:,j),1,0,1,'GARCH','NORMAL',i,const);
+        [parameters_GARCH_Gauss, LLF_GARCH_Gauss(i), stderrors_GARCH_Gauss, robustSE_GARCH_Gauss, ht_GARCH_Gauss, scores_GARCH_Gauss, resid_GARCH_Gauss, likelihood_GARCH_Gauss, EXITFLAG] = ar_multigarch_grm(data(:,j),1,0,1,'GARCH','NORMAL',i,const,[],[],false);
         %         wenn exitflag <0 war die Optimierung noicht erfolgreich; sete
         %         BIC-Wert auf 1e100. BIC wird nach dem min-Wert ausgesucht und mit
         %         BIC = 1e100 wird das jeweilige Modell auf keinen Fall ausgesucht
@@ -57,12 +57,12 @@ for j=1:k;
     %     die verschiedenen arlags ergeben) aus; in nGARCH_gauss steht die
     %     optimale AR
     [m,nGARCH_Gauss(j)] = min(BIC_GARCH_Gauss);
-    
+
     % % 2.EGARCH-Gauss
     BIC_EGARCH_Gauss = zeros(arlag,1);
     LLF_EGARCH_Gauss = zeros(arlag,1);
     for i=1:arlag
-        [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss(i), stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','NORMAL',i,const);
+        [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss(i), stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','NORMAL',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_EGARCH_Gauss(i) = 1e100;
         else
@@ -70,12 +70,12 @@ for j=1:k;
         end
     end
     [m,nEGARCH_Gauss(j)] = min(BIC_EGARCH_Gauss);
-    
+
     % %     3.TGARCH-Gauss
     BIC_TGARCH_Gauss = zeros(arlag,1);
     LLF_TGARCH_Gauss = zeros(arlag,1);
     for i=1:arlag
-        [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss(i), stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','NORMAL',i,const);
+        [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss(i), stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','NORMAL',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_TGARCH_Gauss(i) = 1e100;
         else
@@ -86,13 +86,13 @@ for j=1:k;
         end
     end
     [m,nTGARCH_Gauss(j)] = min(BIC_TGARCH_Gauss);
-    
-    
+
+
     %     % 4.GJRGARCH-Gauss
     BIC_GJRGARCH_Gauss = zeros(arlag,1);
     LLF_GJRGARCH_Gauss = zeros(arlag,1);
     for i=1:arlag
-        [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss(i), stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','NORMAL',i,const);
+        [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss(i), stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','NORMAL',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GJRGARCH_Gauss(i) = 1e100;
         else
@@ -100,12 +100,12 @@ for j=1:k;
         end
     end
     [m,nGJRGARCH_Gauss(j)] = min(BIC_GJRGARCH_Gauss);
-    
+
     %   5. AVGARCH-Gauss
     BIC_AVGARCH_Gauss = zeros(arlag,1);
     LLF_AVGARCH_Gauss = zeros(arlag,1);
     for i=1:arlag
-        [parameters_AVGARCH_Gauss, LLF_AVGARCH_Gauss(i), stderrors_AVGARCH_Gauss, robustSE_AVGARCH_Gauss, ht_AVGARCH_Gauss, scores_AVGARCH_Gauss, resid_AVGARCH_Gauss, likelihood_AVGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','NORMAL',i,const);
+        [parameters_AVGARCH_Gauss, LLF_AVGARCH_Gauss(i), stderrors_AVGARCH_Gauss, robustSE_AVGARCH_Gauss, ht_AVGARCH_Gauss, scores_AVGARCH_Gauss, resid_AVGARCH_Gauss, likelihood_AVGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','NORMAL',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_AVGARCH_Gauss(i) = 1e100;
         else
@@ -113,12 +113,12 @@ for j=1:k;
         end
     end
     [m,nAVGARCH_Gauss(j)] = min(BIC_AVGARCH_Gauss);
-    
+
     %   6. NGARCH-Gauss
 %     BIC_NGARCH_Gauss = zeros(arlag,1);
 %     LLF_NGARCH_Gauss = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NGARCH_Gauss, LLF_NGARCH_Gauss(i), stderrors_NGARCH_Gauss, robustSE_NGARCH_Gauss, ht_NGARCH_Gauss, scores_NGARCH_Gauss, resid_NGARCH_Gauss, likelihood_NGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','NORMAL',i,const);
+%         [parameters_NGARCH_Gauss, LLF_NGARCH_Gauss(i), stderrors_NGARCH_Gauss, robustSE_NGARCH_Gauss, ht_NGARCH_Gauss, scores_NGARCH_Gauss, resid_NGARCH_Gauss, likelihood_NGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','NORMAL',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NGARCH_Gauss(i) = 1e100;
 %         else
@@ -131,7 +131,7 @@ for j=1:k;
 %     BIC_NAGARCH_Gauss = zeros(arlag,1);
 %     LLF_NAGARCH_Gauss = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NAGARCH_Gauss, LLF_NAGARCH_Gauss(i), stderrors_NAGARCH_Gauss, robustSE_NAGARCH_Gauss, ht_NAGARCH_Gauss, scores_NAGARCH_Gauss, resid_NAGARCH_Gauss, likelihood_NAGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','NORMAL',i,const);
+%         [parameters_NAGARCH_Gauss, LLF_NAGARCH_Gauss(i), stderrors_NAGARCH_Gauss, robustSE_NAGARCH_Gauss, ht_NAGARCH_Gauss, scores_NAGARCH_Gauss, resid_NAGARCH_Gauss, likelihood_NAGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','NORMAL',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NAGARCH_Gauss(i) = 1e100;
 %         else
@@ -139,13 +139,13 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNAGARCH_Gauss(j)] = min(BIC_NAGARCH_Gauss);
-        
-        
+
+
     %   8. APGARCH-Gauss
 %     BIC_APGARCH_Gauss = zeros(arlag,1);
 %     LLF_APGARCH_Gauss = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_APGARCH_Gauss, LLF_APGARCH_Gauss(i), stderrors_APGARCH_Gauss, robustSE_APGARCH_Gauss, ht_APGARCH_Gauss, scores_APGARCH_Gauss, resid_APGARCH_Gauss, likelihood_APGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','NORMAL',i,const);
+%         [parameters_APGARCH_Gauss, LLF_APGARCH_Gauss(i), stderrors_APGARCH_Gauss, robustSE_APGARCH_Gauss, ht_APGARCH_Gauss, scores_APGARCH_Gauss, resid_APGARCH_Gauss, likelihood_APGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','NORMAL',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_APGARCH_Gauss(i) = 1e100;
 %         else
@@ -153,24 +153,24 @@ for j=1:k;
 %         end
 %     end
 %     [m,nAPGARCH_Gauss(j)] = min(BIC_APGARCH_Gauss);
-    
+
     %     wähle das optimale Modell über die verschiedenen Modelle mit
     %     Gauß-Verteilung aus - die optimale arlag-Länge wurde vorher bestimmt
     %     und steht in, z.B. nGARCH_Gauß
 %     BIC_gesamt_Gauss{j} = [BIC_GARCH_Gauss(nGARCH_Gauss(j));BIC_EGARCH_Gauss(nEGARCH_Gauss(j));BIC_TGARCH_Gauss(nTGARCH_Gauss(j));BIC_GJRGARCH_Gauss(nGJRGARCH_Gauss(j));BIC_AVGARCH_Gauss(nAVGARCH_Gauss(j));BIC_NGARCH_Gauss(nNGARCH_Gauss(j));BIC_NAGARCH_Gauss(nNAGARCH_Gauss(j));BIC_APGARCH_Gauss(nAPGARCH_Gauss(j))];
         BIC_gesamt_Gauss{j} = [BIC_GARCH_Gauss(nGARCH_Gauss(j));BIC_EGARCH_Gauss(nEGARCH_Gauss(j));BIC_TGARCH_Gauss(nTGARCH_Gauss(j));BIC_GJRGARCH_Gauss(nGJRGARCH_Gauss(j));BIC_AVGARCH_Gauss(nAVGARCH_Gauss(j));1e100;1e100;1e100];
     [Holder, BIC_opt_Gauss{j}] = min(BIC_gesamt_Gauss{j});
-    
+
     % -------------------------------------------------------------------------
     % -------------------------------------------------------------------------
-    
+
     % Verteilung STUDENTST
     % 9.GARCH-STUDENTST
     BIC_GARCH_STUDENTST = zeros(arlag,1);
     LLF_GARCH_STUDENTST = zeros(arlag,1);
-    
+
     for i=1:arlag
-        [parameters_GARCH_STUDENTST, LLF_GARCH_STUDENTST(i), stderrors_GARCH_STUDENTST, robustSE_GARCH_STUDENTST, ht_GARCH_STUDENTST, scores_GARCH_STUDENTST, resid_GARCH_STUDENTST, liklihood_GARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','STUDENTST',i,const);
+        [parameters_GARCH_STUDENTST, LLF_GARCH_STUDENTST(i), stderrors_GARCH_STUDENTST, robustSE_GARCH_STUDENTST, ht_GARCH_STUDENTST, scores_GARCH_STUDENTST, resid_GARCH_STUDENTST, liklihood_GARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','STUDENTST',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GARCH_STUDENTST(i) = 1e100;
         else
@@ -178,13 +178,13 @@ for j=1:k;
         end
     end
     [m,nGARCH_STUDENTST(j)] = min(BIC_GARCH_STUDENTST);
-    
-    
+
+
     % % % 10.EGARCH-STUDENTST
     BIC_EGARCH_STUDENTST = zeros(arlag,1);
     LLF_EGARCH_STUDENTST = zeros(arlag,1);
     for i=1:arlag
-        [parameters_EGARCH_STUDENTST, LLF_EGARCH_STUDENTST(i), stderrors_EGARCH_STUDENTST, robustSE_EGARCH_STUDENTST, ht_EGARCH_STUDENTST, scores_EGARCH_STUDENTST, resid_EGARCH_STUDENTST, likelihood_EGARCH_STUDENTST EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','STUDENTST',i,const);
+        [parameters_EGARCH_STUDENTST, LLF_EGARCH_STUDENTST(i), stderrors_EGARCH_STUDENTST, robustSE_EGARCH_STUDENTST, ht_EGARCH_STUDENTST, scores_EGARCH_STUDENTST, resid_EGARCH_STUDENTST, likelihood_EGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','STUDENTST',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_EGARCH_STUDENTST(i) = 1e100;
         else
@@ -192,13 +192,13 @@ for j=1:k;
         end
     end
     [m,nEGARCH_STUDENTST(j)] = min(BIC_EGARCH_STUDENTST);
-    
-    
+
+
     %     11.TGARCH-STUDENTST
     BIC_TGARCH_STUDENTST = zeros(arlag,1);
     LLF_TGARCH_STUDENTST = zeros(arlag,1);
     for i=1:arlag
-        [parameters_TGARCH_STUDENTST, LLF_TGARCH_STUDENTST(i), stderrors_TGARCH_STUDENTST, robustSE_TGARCH_STUDENTST, ht_TGARCH_STUDENTST, scores_TGARCH_STUDENTST, resid_TGARCH_STUDENTST, likelihood_TGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','STUDENTST',i,const);
+        [parameters_TGARCH_STUDENTST, LLF_TGARCH_STUDENTST(i), stderrors_TGARCH_STUDENTST, robustSE_TGARCH_STUDENTST, ht_TGARCH_STUDENTST, scores_TGARCH_STUDENTST, resid_TGARCH_STUDENTST, likelihood_TGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','STUDENTST',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_TGARCH_STUDENTST(i) = 1e100;
         else
@@ -206,12 +206,12 @@ for j=1:k;
         end
     end
     [m,nTGARCH_STUDENTST(j)] = min(BIC_TGARCH_STUDENTST);
-    
+
     % 12. GJRGARCH_STUDENTST
     BIC_GJRGARCH_STUDENTST = zeros(arlag,1);
     LLF_GJRGARCH_STUDENTST = zeros(arlag,1);
     for i=1:arlag
-        [parameters_GJRGARCH_STUDENTST, LLF_GJRGARCH_STUDENTST(i), stderrors_GJRGARCH_STUDENTST, robustSE_GJRGARCH_STUDENTST, ht_GJRGARCH_STUDENTST, scores_GJRGARCH_STUDENTST, resid_GJRGARCH_STUDENTST, likelihood_GJRGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','STUDENTST',i,const);
+        [parameters_GJRGARCH_STUDENTST, LLF_GJRGARCH_STUDENTST(i), stderrors_GJRGARCH_STUDENTST, robustSE_GJRGARCH_STUDENTST, ht_GJRGARCH_STUDENTST, scores_GJRGARCH_STUDENTST, resid_GJRGARCH_STUDENTST, likelihood_GJRGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','STUDENTST',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GJRGARCH_STUDENTST(i) = 1e100;
         else
@@ -219,12 +219,12 @@ for j=1:k;
         end
     end
     [m,nGJRGARCH_STUDENTST(j)] = min(BIC_GJRGARCH_STUDENTST);
-    
+
 %     %   13. AVGARCH-STUDENST
     BIC_AVGARCH_STUDENTST = zeros(arlag,1);
     LLF_AVGARCH_STUDENTST = zeros(arlag,1);
     for i=1:arlag
-        [parameters_AVGARCH_STUDENTST, LLF_AVGARCH_STUDENTST(i), stderrors_AVGARCH_STUDENTST, robustSE_AVGARCH_STUDENTST, ht_AVGARCH_STUDENTST, scores_AVGARCH_STUDENTST, resid_AVGARCH_STUDENTST, likelihood_AVGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','STUDENTST',i,const);
+        [parameters_AVGARCH_STUDENTST, LLF_AVGARCH_STUDENTST(i), stderrors_AVGARCH_STUDENTST, robustSE_AVGARCH_STUDENTST, ht_AVGARCH_STUDENTST, scores_AVGARCH_STUDENTST, resid_AVGARCH_STUDENTST, likelihood_AVGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','STUDENTST',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_AVGARCH_STUDENTST(i) = 1e100;
         else
@@ -232,12 +232,12 @@ for j=1:k;
         end
     end
     [m,nAVGARCH_STUDENTST(j)] = min(BIC_AVGARCH_STUDENTST);
-    
+
     %   14. NGARCH-STUDENTST
 %     BIC_NGARCH_STUDENTST = zeros(arlag,1);
 %     LLF_NGARCH_STUDENTST = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NGARCH_STUDENTST, LLF_NGARCH_STUDENTST(i), stderrors_NGARCH_STUDENTST, robustSE_NGARCH_STUDENTST, ht_NGARCH_STUDENTST, scores_NGARCH_STUDENTST, resid_NGARCH_STUDENTST, likelihood_NGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','STUDENTST',i,const);
+%         [parameters_NGARCH_STUDENTST, LLF_NGARCH_STUDENTST(i), stderrors_NGARCH_STUDENTST, robustSE_NGARCH_STUDENTST, ht_NGARCH_STUDENTST, scores_NGARCH_STUDENTST, resid_NGARCH_STUDENTST, likelihood_NGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','STUDENTST',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NGARCH_STUDENTST(i) = 1e100;
 %         else
@@ -245,12 +245,12 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNGARCH_STUDENTST(j)] = min(BIC_NGARCH_STUDENTST);
-    
+
     %   15. NAGARCH-STUDENTST
 %     BIC_NAGARCH_STUDENTST = zeros(arlag,1);
 %     LLF_NAGARCH_STUDENTST = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NAGARCH_STUDENTST, LLF_NAGARCH_STUDENTST(i), stderrors_NAGARCH_STUDENTST, robustSE_NAGARCH_STUDENTST, ht_NAGARCH_STUDENTST, scores_NAGARCH_STUDENTST, resid_NAGARCH_STUDENTST, likelihood_NAGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','STUDENTST',i,const);
+%         [parameters_NAGARCH_STUDENTST, LLF_NAGARCH_STUDENTST(i), stderrors_NAGARCH_STUDENTST, robustSE_NAGARCH_STUDENTST, ht_NAGARCH_STUDENTST, scores_NAGARCH_STUDENTST, resid_NAGARCH_STUDENTST, likelihood_NAGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','STUDENTST',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NAGARCH_STUDENTST(i) = 1e100;
 %         else
@@ -258,12 +258,12 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNAGARCH_STUDENTST(j)] = min(BIC_NAGARCH_STUDENTST);
-    
+
     %   16. APGARCH-STUDENTST
 %     BIC_APGARCH_STUDENTST = zeros(arlag,1);
 %     LLF_APGARCH_STUDENTST = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_APGARCH_STUDENTST, LLF_APGARCH_STUDENTST(i), stderrors_APGARCH_STUDENTST, robustSE_APGARCH_STUDENTST, ht_APGARCH_STUDENTST, scores_APGARCH_STUDENTST, resid_APGARCH_STUDENTST, likelihood_APGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','STUDENTST',i,const);
+%         [parameters_APGARCH_STUDENTST, LLF_APGARCH_STUDENTST(i), stderrors_APGARCH_STUDENTST, robustSE_APGARCH_STUDENTST, ht_APGARCH_STUDENTST, scores_APGARCH_STUDENTST, resid_APGARCH_STUDENTST, likelihood_APGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','STUDENTST',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_APGARCH_STUDENTST(i) = 1e100;
 %         else
@@ -271,10 +271,10 @@ for j=1:k;
 %         end
 %     end
 %     [m,nAPGARCH_STUDENTST(j)] = min(BIC_APGARCH_STUDENTST);
-    
+
 %     BIC_gesamt_STUDENTST{j} = [BIC_GARCH_STUDENTST(nGARCH_STUDENTST(j));BIC_EGARCH_STUDENTST(nEGARCH_STUDENTST(j));BIC_TGARCH_STUDENTST(nTGARCH_STUDENTST(j));BIC_GJRGARCH_STUDENTST(nGJRGARCH_STUDENTST(j));BIC_AVGARCH_STUDENTST(nAVGARCH_STUDENTST(j));BIC_NGARCH_STUDENTST(nNGARCH_STUDENTST(j));BIC_NAGARCH_STUDENTST(nNAGARCH_STUDENTST(j));BIC_APGARCH_STUDENTST(nAPGARCH_STUDENTST(j))];
         BIC_gesamt_STUDENTST{j} = [BIC_GARCH_STUDENTST(nGARCH_STUDENTST(j));BIC_EGARCH_STUDENTST(nEGARCH_STUDENTST(j));BIC_TGARCH_STUDENTST(nTGARCH_STUDENTST(j));BIC_GJRGARCH_STUDENTST(nGJRGARCH_STUDENTST(j));BIC_AVGARCH_STUDENTST(nAVGARCH_STUDENTST(j));1e100;1e100;1e100];
-    
+
     % ------------------------------------------------------------------------
     % ------------------------------------------------------------------------
     % Verteilung GED
@@ -282,7 +282,7 @@ for j=1:k;
     BIC_GARCH_GED = zeros(arlag,1);
     LLF_GARCH_GED = zeros(arlag,1);
     for i=1:arlag
-        [parameters_GARCH_GED, LLF_GARCH_GED(i), stderrors_GARCH_GED, robustSE_GARCH_GED, ht_GARCH_GED, scores_GARCH_GED, resid_GARCH_GED, likelihood_GARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','GED',i,const);
+        [parameters_GARCH_GED, LLF_GARCH_GED(i), stderrors_GARCH_GED, robustSE_GARCH_GED, ht_GARCH_GED, scores_GARCH_GED, resid_GARCH_GED, likelihood_GARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','GED',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GARCH_GED(i) = 1e100;
         else
@@ -290,13 +290,13 @@ for j=1:k;
         end
     end
     [m,nGARCH_GED(j)] = min(BIC_GARCH_GED);
-    
-    
+
+
     % % % 18.EGARCH-GED
     BIC_EGARCH_GED = zeros(arlag,1);
     LLF_EGARCH_GED = zeros(arlag,1);
     for i=1:arlag
-        [parameters_EGARCH_GED, LLF_EGARCH_GED(i), stderrors_EGARCH_GED, robustSE_EGARCH_GED, ht_EGARCH_GED, scores_EGARCH_GED, resid_EGARCH_GED, likelihood_EGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','GED',i,const);
+        [parameters_EGARCH_GED, LLF_EGARCH_GED(i), stderrors_EGARCH_GED, robustSE_EGARCH_GED, ht_EGARCH_GED, scores_EGARCH_GED, resid_EGARCH_GED, likelihood_EGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','GED',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_EGARCH_GED(i) = 1e100;
         else
@@ -304,12 +304,12 @@ for j=1:k;
         end
     end
     [m,nEGARCH_GED(j)] = min(BIC_EGARCH_GED);
-    
+
     % 19.TGARCH-GED
     BIC_TGARCH_GED = zeros(arlag,1);
     LLF_TGARCH_GED = zeros(arlag,1);
     for i=1:arlag
-        [parameters_TGARCH_GED, LLF_TGARCH_GED(i), stderrors_TGARCH_GED, robustSE_TGARCH_GED, ht_TGARCH_GED, scores_TGARCH_GED, resid_TGARCH_GED, likelihood_TGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','GED',i,const);
+        [parameters_TGARCH_GED, LLF_TGARCH_GED(i), stderrors_TGARCH_GED, robustSE_TGARCH_GED, ht_TGARCH_GED, scores_TGARCH_GED, resid_TGARCH_GED, likelihood_TGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','GED',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_TGARCH_GED(i) = 1e100;
         else
@@ -317,12 +317,12 @@ for j=1:k;
         end
     end
     [m,nTGARCH_GED(j)] = min(BIC_TGARCH_GED);
-    
+
     % 20.GJRGARCH-GED
     BIC_GJRGARCH_GED = zeros(arlag,1);
     LLF_GJRGARCH_GED = zeros(arlag,1);
     for i=1:arlag
-        [parameters_GJRGARCH_GED, LLF_GJRGARCH_GED(i), stderrors_GJRGARCH_GED, robustSE_GJRGARCH_GED, ht_GJRGARCH_GED, scores_GJRGARCH_GED, resid_GJRGARCH_GED, likelihood_GJRGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','GED',i,const);
+        [parameters_GJRGARCH_GED, LLF_GJRGARCH_GED(i), stderrors_GJRGARCH_GED, robustSE_GJRGARCH_GED, ht_GJRGARCH_GED, scores_GJRGARCH_GED, resid_GJRGARCH_GED, likelihood_GJRGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','GED',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GJRGARCH_GED(i) = 1e100;
         else
@@ -330,13 +330,13 @@ for j=1:k;
         end
     end
     [m,nGJRGARCH_GED(j)] = min(BIC_GJRGARCH_GED);
-    
-    
+
+
 %     %   21. AVGARCH-GED
     BIC_AVGARCH_GED = zeros(arlag,1);
     LLF_AVGARCH_GED = zeros(arlag,1);
     for i=1:arlag
-        [parameters_AVGARCH_GED, LLF_AVGARCH_GED(i), stderrors_AVGARCH_GED, robustSE_AVGARCH_GED, ht_AVGARCH_GED, scores_AVGARCH_GED, resid_AVGARCH_GED, likelihood_AVGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','GED',i,const);
+        [parameters_AVGARCH_GED, LLF_AVGARCH_GED(i), stderrors_AVGARCH_GED, robustSE_AVGARCH_GED, ht_AVGARCH_GED, scores_AVGARCH_GED, resid_AVGARCH_GED, likelihood_AVGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','GED',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_AVGARCH_GED(i) = 1e100;
         else
@@ -344,12 +344,12 @@ for j=1:k;
         end
     end
     [m,nAVGARCH_GED(j)] = min(BIC_AVGARCH_GED);
-    
+
     %   22. NGARCH-GED
 %     BIC_NGARCH_GED = zeros(arlag,1);
 %     LLF_NGARCH_GED = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NGARCH_GED, LLF_NGARCH_GED(i), stderrors_NGARCH_GED, robustSE_NGARCH_GED, ht_NGARCH_GED, scores_NGARCH_GED, resid_NGARCH_GED, likelihood_NGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','GED',i,const);
+%         [parameters_NGARCH_GED, LLF_NGARCH_GED(i), stderrors_NGARCH_GED, robustSE_NGARCH_GED, ht_NGARCH_GED, scores_NGARCH_GED, resid_NGARCH_GED, likelihood_NGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','GED',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NGARCH_GED(i) = 1e100;
 %         else
@@ -357,12 +357,12 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNGARCH_GED(j)] = min(BIC_NGARCH_GED);
-    
+
     %   23. NAGARCH-GED
 %     BIC_NAGARCH_GED = zeros(arlag,1);
 %     LLF_NAGARCH_GED = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NAGARCH_GED, LLF_NAGARCH_GED(i), stderrors_NAGARCH_GED, robustSE_NAGARCH_GED, ht_NAGARCH_GED, scores_NAGARCH_GED, resid_NAGARCH_GED, likelihood_NAGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','GED',i,const);
+%         [parameters_NAGARCH_GED, LLF_NAGARCH_GED(i), stderrors_NAGARCH_GED, robustSE_NAGARCH_GED, ht_NAGARCH_GED, scores_NAGARCH_GED, resid_NAGARCH_GED, likelihood_NAGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','GED',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NAGARCH_GED(i) = 1e100;
 %         else
@@ -370,12 +370,12 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNAGARCH_GED(j)] = min(BIC_NAGARCH_GED);
-    
+
     %   24. APGARCH-GED
 %     BIC_APGARCH_GED = zeros(arlag,1);
 %     LLF_APGARCH_GED = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_APGARCH_GED, LLF_APGARCH_GED(i), stderrors_APGARCH_GED, robustSE_APGARCH_GED, ht_APGARCH_GED, scores_APGARCH_GED, resid_APGARCH_GED, likelihood_APGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','GED',i,const);
+%         [parameters_APGARCH_GED, LLF_APGARCH_GED(i), stderrors_APGARCH_GED, robustSE_APGARCH_GED, ht_APGARCH_GED, scores_APGARCH_GED, resid_APGARCH_GED, likelihood_APGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','GED',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_APGARCH_GED(i) = 1e100;
 %         else
@@ -383,13 +383,13 @@ for j=1:k;
 %         end
 %     end
 %     [m,nAPGARCH_GED(j)] = min(BIC_APGARCH_GED);
-    
+
 %     BIC_gesamt_GED{j} = [BIC_GARCH_GED(nGARCH_GED(j));BIC_EGARCH_GED(nEGARCH_GED(j));BIC_TGARCH_GED(nTGARCH_GED(j));BIC_GJRGARCH_GED(nGJRGARCH_GED(j));BIC_AVGARCH_GED(nAVGARCH_GED(j));BIC_NGARCH_GED(nNGARCH_GED(j));BIC_NAGARCH_GED(nNAGARCH_GED(j));BIC_APGARCH_GED(nAPGARCH_GED(j))];
     BIC_gesamt_GED{j} = [BIC_GARCH_GED(nGARCH_GED(j));BIC_EGARCH_GED(nEGARCH_GED(j));BIC_TGARCH_GED(nTGARCH_GED(j));BIC_GJRGARCH_GED(nGJRGARCH_GED(j));BIC_AVGARCH_GED(nAVGARCH_GED(j));1e100;1e100;1e100];
-    
+
     %     optGARCH_GED = find(BIC_gesamt_GED == min(BIC_gesamt_GED));
     %     BIC_GED = BIC_gesamt_GED(optGARCH_GED);
-    
+
     %     ---------------------------------------------------------------------
     %     --------------------------------------------------------------------
     % Verteilung SKEWT
@@ -397,7 +397,7 @@ for j=1:k;
     BIC_GARCH_SKEWT = zeros(arlag,1);
     LLF_GARCH_SKEWT = zeros(arlag,1);
     for i=1:arlag
-        [parameters_GARCH_SKEWT, LLF_GARCH_SKEWT(i), stderrors_GARCH_SKEWT, robustSE_GARCH_SKEWT, ht_GARCH_SKEWT, scores_GARCH_SKEWT, resid_GARCH_SKEWT, likelihood_GARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','SKEWT',i,const);
+        [parameters_GARCH_SKEWT, LLF_GARCH_SKEWT(i), stderrors_GARCH_SKEWT, robustSE_GARCH_SKEWT, ht_GARCH_SKEWT, scores_GARCH_SKEWT, resid_GARCH_SKEWT, likelihood_GARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','SKEWT',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GARCH_SKEWT(i) = 1e100;
         else
@@ -405,12 +405,12 @@ for j=1:k;
         end
     end
     [m,nGARCH_SKEWT(j)] = min(BIC_GARCH_SKEWT);
-    
+
     % % % 26.EGARCH-SKEWT
     BIC_EGARCH_SKEWT = zeros(arlag,1);
     LLF_EGARCH_SKEWT = zeros(arlag,1);
     for i=1:arlag
-        [parameters_EGARCH_SKEWT, LLF_EGARCH_SKEWT(i), stderrors_EGARCH_SKEWT, robustSE_EGARCH_SKEWT, ht_EGARCH_SKEWT, scores_EGARCH_SKEWT, resid_EGARCH_SKEWT, likelihood_EGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','SKEWT',i,const);
+        [parameters_EGARCH_SKEWT, LLF_EGARCH_SKEWT(i), stderrors_EGARCH_SKEWT, robustSE_EGARCH_SKEWT, ht_EGARCH_SKEWT, scores_EGARCH_SKEWT, resid_EGARCH_SKEWT, likelihood_EGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','SKEWT',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_EGARCH_SKEWT(i) = 1e100;
         else
@@ -418,12 +418,12 @@ for j=1:k;
         end
     end
     [m,nEGARCH_SKEWT(j)] = min(BIC_EGARCH_SKEWT);
-    
+
     % 27.TGARCH-SKEWT
     BIC_TGARCH_SKEWT = zeros(arlag,1);
     LLF_TGARCH_SKEWT = zeros(arlag,1);
     for i=1:arlag
-        [parameters_TGARCH_SKEWT, LLF_TGARCH_SKEWT(i), stderrors_TGARCH_SKEWT, robustSE_TGARCH_SKEWT, ht_TGARCH_SKEWT, scores_TGARCH_SKEWT, resid_TGARCH_SKEWT, likelihood_TGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','SKEWT',i,const);
+        [parameters_TGARCH_SKEWT, LLF_TGARCH_SKEWT(i), stderrors_TGARCH_SKEWT, robustSE_TGARCH_SKEWT, ht_TGARCH_SKEWT, scores_TGARCH_SKEWT, resid_TGARCH_SKEWT, likelihood_TGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','SKEWT',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_TGARCH_SKEWT(i) = 1e100;
         else
@@ -431,12 +431,12 @@ for j=1:k;
         end
     end
     [m,nTGARCH_SKEWT(j)] = min(BIC_TGARCH_SKEWT);
-    
+
     % 28.GJRGARCH-SKEWT
     BIC_GJRGARCH_SKEWT = zeros(arlag,1);
     LLF_GJRGARCH_SKEWT = zeros(arlag,1);
     for i=1:arlag
-        [parameters_GJRGARCH_SKEWT, LLF_GJRGARCH_SKEWT(i), stderrors_GJRGARCH_SKEWT, robustSE_GJRGARCH_SKEWT, ht_GJRGARCH_SKEWT, scores_GJRGARCH_SKEWT, resid_GJRGARCH_SKEWT, likelihood_GJRGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','SKEWT',i,const);
+        [parameters_GJRGARCH_SKEWT, LLF_GJRGARCH_SKEWT(i), stderrors_GJRGARCH_SKEWT, robustSE_GJRGARCH_SKEWT, ht_GJRGARCH_SKEWT, scores_GJRGARCH_SKEWT, resid_GJRGARCH_SKEWT, likelihood_GJRGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','SKEWT',i,const,[],[],false);
         if EXITFLAG <= 0
             BIC_GJRGARCH_SKEWT(i) = 1e100;
         else
@@ -444,13 +444,13 @@ for j=1:k;
         end
     end
     [m,nGJRGARCH_SKEWT(j)] = min(BIC_GJRGARCH_SKEWT);
-    
-    
+
+
 %     %   29. AVGARCH-SKEWT
     BIC_AVGARCH_SKEWT = zeros(arlag,1);
     LLF_AVGARCH_SKEWT = zeros(arlag,1);
     for i=1:arlag
-        [parameters_AVGARCH_SKEWT, LLF_AVGARCH_SKEWT(i), stderrors_AVGARCH_SKEWT, robustSE_AVGARCH_SKEWT, ht_AVGARCH_SKEWT, scores_AVGARCH_SKEWT, resid_AVGARCH_SKEWT, likelihood_AVGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','SKEWT',i,const);
+        [parameters_AVGARCH_SKEWT, LLF_AVGARCH_SKEWT(i), stderrors_AVGARCH_SKEWT, robustSE_AVGARCH_SKEWT, ht_AVGARCH_SKEWT, scores_AVGARCH_SKEWT, resid_AVGARCH_SKEWT, likelihood_AVGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','SKEWT',i,const,[],[],false);
         if EXITFLAG <= 0 || any(isnan(parameters_AVGARCH_SKEWT))
             BIC_AVGARCH_SKEWT(i) = 1e100;
         else
@@ -458,12 +458,12 @@ for j=1:k;
         end
     end
     [m,nAVGARCH_SKEWT(j)] = min(BIC_AVGARCH_SKEWT);
-% %     
+% %
 %     %   30. NGARCH-SKEWT
 %     BIC_NGARCH_SKEWT = zeros(arlag,1);
 %     LLF_NGARCH_SKEWT = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NGARCH_SKEWT, LLF_NGARCH_SKEWT(i), stderrors_NGARCH_SKEWT, robustSE_NGARCH_SKEWT, ht_NGARCH_SKEWT, scores_NGARCH_SKEWT, resid_NGARCH_SKEWT, likelihood_NGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','SKEWT',i,const);
+%         [parameters_NGARCH_SKEWT, LLF_NGARCH_SKEWT(i), stderrors_NGARCH_SKEWT, robustSE_NGARCH_SKEWT, ht_NGARCH_SKEWT, scores_NGARCH_SKEWT, resid_NGARCH_SKEWT, likelihood_NGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','SKEWT',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NGARCH_SKEWT(i) = 1e100;
 %         else
@@ -471,12 +471,12 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNGARCH_SKEWT(j)] = min(BIC_NGARCH_SKEWT);
-    
+
     %   31. NAGARCH-SKEWT
 %     BIC_NAGARCH_SKEWT = zeros(arlag,1);
 %     LLF_NAGARCH_SKEWT = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_NAGARCH_SKEWT, LLF_NAGARCH_SKEWT(i), stderrors_NAGARCH_SKEWT, robustSE_NAGARCH_SKEWT, ht_NAGARCH_SKEWT, scores_NAGARCH_SKEWT, resid_NAGARCH_SKEWT, likelihood_NAGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','SKEWT',i,const);
+%         [parameters_NAGARCH_SKEWT, LLF_NAGARCH_SKEWT(i), stderrors_NAGARCH_SKEWT, robustSE_NAGARCH_SKEWT, ht_NAGARCH_SKEWT, scores_NAGARCH_SKEWT, resid_NAGARCH_SKEWT, likelihood_NAGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','SKEWT',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_NAGARCH_SKEWT(i) = 1e100;
 %         else
@@ -484,12 +484,12 @@ for j=1:k;
 %         end
 %     end
 %     [m,nNAGARCH_SKEWT(j)] = min(BIC_NAGARCH_SKEWT);
-    
+
     %   32. APGARCH-SKEWT
 %     BIC_APGARCH_SKEWT = zeros(arlag,1);
 %     LLF_APGARCH_SKEWT = zeros(arlag,1);
 %     for i=1:arlag
-%         [parameters_APGARCH_SKEWT, LLF_APGARCH_SKEWT(i), stderrors_APGARCH_SKEWT, robustSE_APGARCH_SKEWT, ht_APGARCH_SKEWT, scores_APGARCH_SKEWT, resid_APGARCH_SKEWT, likelihood_APGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','SKEWT',i,const);
+%         [parameters_APGARCH_SKEWT, LLF_APGARCH_SKEWT(i), stderrors_APGARCH_SKEWT, robustSE_APGARCH_SKEWT, ht_APGARCH_SKEWT, scores_APGARCH_SKEWT, resid_APGARCH_SKEWT, likelihood_APGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'APGARCH','SKEWT',i,const,[],[],false);
 %         if EXITFLAG <= 0
 %             BIC_APGARCH_SKEWT(i) = 1e100;
 %         else
@@ -497,10 +497,10 @@ for j=1:k;
 %         end
 %     end
 %     [m,nAPGARCH_SKEWT(j)] = min(BIC_APGARCH_SKEWT);
-    
+
 %     BIC_gesamt_SKEWT{j} = [BIC_GARCH_SKEWT(nGARCH_SKEWT(j));BIC_EGARCH_SKEWT(nEGARCH_SKEWT(j));BIC_TGARCH_SKEWT(nTGARCH_SKEWT(j));BIC_GJRGARCH_SKEWT(nGJRGARCH_SKEWT(j));BIC_AVGARCH_SKEWT(nAVGARCH_SKEWT(j));BIC_NGARCH_SKEWT(nNGARCH_SKEWT(j));BIC_NAGARCH_SKEWT(nNAGARCH_SKEWT(j));BIC_APGARCH_SKEWT(nAPGARCH_SKEWT(j))];
-    BIC_gesamt_SKEWT{j} = [BIC_GARCH_SKEWT(nGARCH_SKEWT(j));BIC_EGARCH_SKEWT(nEGARCH_SKEWT(j));BIC_TGARCH_SKEWT(nTGARCH_SKEWT(j));BIC_GJRGARCH_SKEWT(nGJRGARCH_SKEWT(j));BIC_AVGARCH_SKEWT(nGJRGARCH_SKEWT(j));1e100;1e100;1e100];
-    
+    BIC_gesamt_SKEWT{j} = [BIC_GARCH_SKEWT(nGARCH_SKEWT(j));BIC_EGARCH_SKEWT(nEGARCH_SKEWT(j));BIC_TGARCH_SKEWT(nTGARCH_SKEWT(j));BIC_GJRGARCH_SKEWT(nGJRGARCH_SKEWT(j));BIC_AVGARCH_SKEWT(nAVGARCH_SKEWT(j));1e100;1e100;1e100];
+
     % -------------------------------------------------------------------------
     % -------------------------------------------------------------------------
     % % % Bestimmung des optimalen Modells über alle Modelle mit allen
@@ -566,7 +566,7 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
+
         % % % 5.EGARCH-Gauss
     elseif BIC_opt_Gauss{j}==2
         [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss, stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','NORMAL',nEGARCH_Gauss(j),const);
@@ -622,7 +622,7 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
+
         % 6.TGARCH-Gauss
     elseif BIC_opt_Gauss{j}==3
         [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss, stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','NORMAL',nTGARCH_Gauss(j),const);
@@ -678,7 +678,7 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
+
         % 7.GJRGARCH-Gauss
     elseif BIC_opt_Gauss{j}==4
         [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss, stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','NORMAL',nGJRGARCH_Gauss(j),const);
@@ -734,7 +734,7 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
+
     elseif BIC_opt_Gauss{j}==5
         [parameters_AVGARCH_Gauss, LLF_AVGARCH_Gauss, stderrors_AVGARCH_Gauss, robustSE_AVGARCH_Gauss, ht_AVGARCH_Gauss, scores_AVGARCH_Gauss, resid_AVGARCH_Gauss, likelihood_AVGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','NORMAL',nAVGARCH_Gauss(j),const);
         BIC_AVGARCH_Gauss = 2*LLF_AVGARCH_Gauss+log(t)*size(parameters_AVGARCH_Gauss,1);
@@ -789,8 +789,8 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
-        
+
+
     elseif BIC_opt_Gauss{j}==6
         [parameters_NGARCH_Gauss, LLF_NGARCH_Gauss, stderrors_NGARCH_Gauss, robustSE_NGARCH_Gauss, ht_NGARCH_Gauss, scores_NGARCH_Gauss, resid_NGARCH_Gauss, likelihood_NGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','NORMAL',nNGARCH_Gauss(j),const);
         BIC_NGARCH_Gauss = 2*LLF_NGARCH_Gauss+log(t)*size(parameters_NGARCH_Gauss,1);
@@ -845,7 +845,7 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
+
     elseif BIC_opt_Gauss{j}==7
         [parameters_NAGARCH_Gauss, LLF_NAGARCH_Gauss, stderrors_NAGARCH_Gauss, robustSE_NAGARCH_Gauss, ht_NAGARCH_Gauss, scores_NAGARCH_Gauss, resid_NAGARCH_Gauss, likelihood_NAGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','NORMAL',nNAGARCH_Gauss(j),const);
         BIC_NAGARCH_Gauss = 2*LLF_NAGARCH_Gauss+log(t)*size(parameters_NAGARCH_Gauss,1);
@@ -900,7 +900,7 @@ for j=1:k
         else
             Output_Gauss{j}.const = 0;
         end
-        
+
     elseif BIC_opt_Gauss{j}==8
         [parameters_APGARCH_Gauss, LLF_APGARCH_Gauss, stderrors_APGARCH_Gauss, robustSE_APGARCH_Gauss, ht_APGARCH_Gauss, scores_APGARCH_Gauss, resid_APGARCH_Gauss, likelihood_APGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'APGARCH','NORMAL',nAPGARCH_Gauss(j),const);
         BIC_APGARCH_Gauss = 2*LLF_APGARCH_Gauss+log(t)*size(parameters_APGARCH_Gauss,1);
@@ -961,7 +961,7 @@ end
 % für multivariate GARCH wähle optimales Modell aus allen Verteilungen aus
 Output=cell(k,1);
 for j=1:k
-    
+
     if BIC_opt{j}==1
         [parameters_GARCH_Gauss, LLF_GARCH_Gauss, stderrors_GARCH_Gauss, robustSE_GARCH_Gauss, ht_GARCH_Gauss, scores_GARCH_Gauss, resid_GARCH_Gauss, likelihood_GARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'GARCH','NORMAL',nGARCH_Gauss(j),const);
         BIC_GARCH_Gauss = 2*LLF_GARCH_Gauss+ log(t)*size(parameters_GARCH_Gauss,1);
@@ -1016,7 +1016,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % % % 5.EGARCH-Gauss
     elseif BIC_opt{j}==2
         [parameters_EGARCH_Gauss, LLF_EGARCH_Gauss, stderrors_EGARCH_Gauss, robustSE_EGARCH_Gauss, ht_EGARCH_Gauss, scores_EGARCH_Gauss, resid_EGARCH_Gauss, likelihood_EGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','NORMAL',nEGARCH_Gauss(j),const);
@@ -1072,8 +1072,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
         % 6.TGARCH-Gauss
     elseif BIC_opt{j}==3
         [parameters_TGARCH_Gauss, LLF_TGARCH_Gauss, stderrors_TGARCH_Gauss, robustSE_TGARCH_Gauss, ht_TGARCH_Gauss, scores_TGARCH_Gauss, resid_TGARCH_Gauss, likelihood_TGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','NORMAL',nTGARCH_Gauss(j),const);
@@ -1129,7 +1129,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % 7.GJRGARCH-Gauss
     elseif BIC_opt{j}==4
         [parameters_GJRGARCH_Gauss, LLF_GJRGARCH_Gauss, stderrors_GJRGARCH_Gauss, robustSE_GJRGARCH_Gauss, ht_GJRGARCH_Gauss, scores_GJRGARCH_Gauss, resid_GJRGARCH_Gauss, likelihood_GJRGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','NORMAL',nGJRGARCH_Gauss(j),const);
@@ -1185,7 +1185,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==5
         [parameters_AVGARCH_Gauss, LLF_AVGARCH_Gauss, stderrors_AVGARCH_Gauss, robustSE_AVGARCH_Gauss, ht_AVGARCH_Gauss, scores_AVGARCH_Gauss, resid_AVGARCH_Gauss, likelihood_AVGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','NORMAL',nAVGARCH_Gauss(j),const);
         BIC_AVGARCH_Gauss = 2*LLF_AVGARCH_Gauss+log(t)*size(parameters_AVGARCH_Gauss,1);
@@ -1240,8 +1240,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
     elseif BIC_opt{j}==6
         [parameters_NGARCH_Gauss, LLF_NGARCH_Gauss, stderrors_NGARCH_Gauss, robustSE_NGARCH_Gauss, ht_NGARCH_Gauss, scores_NGARCH_Gauss, resid_NGARCH_Gauss, likelihood_NGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','NORMAL',nNGARCH_Gauss(j),const);
         BIC_NGARCH_Gauss = 2*LLF_NGARCH_Gauss+log(t)*size(parameters_NGARCH_Gauss,1);
@@ -1296,9 +1296,9 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==7
-        [parameters_NAGARCH_Gauss, LLF_NAGARCH_Gauss, stderrors_NAGARCH_Gauss, robustSE_NAGARCH_Gauss, ht_NAGARCH_Gauss, scores_NAGARCH_Gauss, resid_NAGARCH_Gauss, likelihood_NAGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','NAORMAL',nNAGARCH_Gauss(j),const);
+        [parameters_NAGARCH_Gauss, LLF_NAGARCH_Gauss, stderrors_NAGARCH_Gauss, robustSE_NAGARCH_Gauss, ht_NAGARCH_Gauss, scores_NAGARCH_Gauss, resid_NAGARCH_Gauss, likelihood_NAGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','NORMAL',nNAGARCH_Gauss(j),const);
         BIC_NAGARCH_Gauss = 2*LLF_NAGARCH_Gauss+log(t)*size(parameters_NAGARCH_Gauss,1);
         Tstatistic_NAGARCH_Gauss=parameters_NAGARCH_Gauss./diag(robustSE_NAGARCH_Gauss).^0.5;
         % H0: keine autocorrelation - in diesem Fall der quadrierten
@@ -1351,7 +1351,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==8
         [parameters_APGARCH_Gauss, LLF_APGARCH_Gauss, stderrors_APGARCH_Gauss, robustSE_APGARCH_Gauss, ht_APGARCH_Gauss, scores_APGARCH_Gauss, resid_APGARCH_Gauss, likelihood_APGARCH_Gauss, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'APGARCH','NORMAL',nAPGARCH_Gauss(j),const);
         BIC_APGARCH_Gauss = 2*LLF_APGARCH_Gauss+log(t)*size(parameters_APGARCH_Gauss,1);
@@ -1406,7 +1406,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % Verteilung STUDENTST
         % 1.GARCH-STUDENTST
     elseif BIC_opt{j}==9
@@ -1463,9 +1463,9 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         %
-        
+
         % % % 5.EGARCH-STUDENTST
     elseif BIC_opt{j}==10
         [parameters_EGARCH_STUDENTST, LLF_EGARCH_STUDENTST, stderrors_EGARCH_STUDENTST, robustSE_EGARCH_STUDENTST, ht_EGARCH_STUDENTST, scores_EGARCH_STUDENTST, resid_EGARCH_STUDENTST, likelihood_EGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','STUDENTST',nEGARCH_STUDENTST(j),const);
@@ -1521,7 +1521,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % 6.TGARCH-STUDENTST
     elseif BIC_opt{j}==11
         [parameters_TGARCH_STUDENTST, LLF_TGARCH_STUDENTST, stderrors_TGARCH_STUDENTST, robustSE_TGARCH_STUDENTST, ht_TGARCH_STUDENTST, scores_TGARCH_STUDENTST, resid_TGARCH_STUDENTST, likelihood_TGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','STUDENTST',nTGARCH_STUDENTST(j),const);
@@ -1577,7 +1577,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % 7.GJRGARCH-STUDENTST
     elseif BIC_opt{j}==12
         [parameters_GJRGARCH_STUDENTST, LLF_GJRGARCH_STUDENTST, stderrors_GJRGARCH_STUDENTST, robustSE_GJRGARCH_STUDENTST, ht_GJRGARCH_STUDENTST, scores_GJRGARCH_STUDENTST, resid_GJRGARCH_STUDENTST,likelihood_GJRGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','STUDENTST',nGJRGARCH_STUDENTST(j),const);
@@ -1692,8 +1692,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
     elseif BIC_opt{j}==14
         [parameters_NGARCH_STUDENTST, LLF_NGARCH_STUDENTST, stderrors_NGARCH_STUDENTST, robustSE_NGARCH_STUDENTST, ht_NGARCH_STUDENTST, scores_NGARCH_STUDENTST, resid_NGARCH_STUDENTST, likelihood_NGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','STUDENTST',nNGARCH_STUDENTST(j),const);
         BIC_NGARCH_STUDENTST = 2*LLF_NGARCH_STUDENTST+log(t)*size(parameters_NGARCH_STUDENTST,1);
@@ -1748,7 +1748,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==15
         [parameters_NAGARCH_STUDENTST, LLF_NAGARCH_STUDENTST, stderrors_NAGARCH_STUDENTST, robustSE_NAGARCH_STUDENTST, ht_NAGARCH_STUDENTST, scores_NAGARCH_STUDENTST, resid_NAGARCH_STUDENTST, likelihood_NAGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','STUDENTST',nNAGARCH_STUDENTST(j),const);
         BIC_NAGARCH_STUDENTST = 2*LLF_NAGARCH_STUDENTST+log(t)*size(parameters_NAGARCH_STUDENTST,1);
@@ -1803,7 +1803,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==16
         [parameters_APGARCH_STUDENTST, LLF_APGARCH_STUDENTST, stderrors_APGARCH_STUDENTST, robustSE_APGARCH_STUDENTST, ht_APGARCH_STUDENTST, scores_APGARCH_STUDENTST, resid_APGARCH_STUDENTST, likelihood_APGARCH_STUDENTST, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'APGARCH','STUDENTST',nAPGARCH_STUDENTST(j),const);
         BIC_APGARCH_STUDENTST = 2*LLF_APGARCH_STUDENTST+log(t)*size(parameters_APGARCH_STUDENTST,1);
@@ -1858,8 +1858,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
         % Verteilung GED
     elseif BIC_opt{j}==17
         % 1.GARCH-GED
@@ -1916,7 +1916,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % % % 5.EGARCH-GED
     elseif BIC_opt{j}==18
         [parameters_EGARCH_GED, LLF_EGARCH_GED, stderrors_EGARCH_GED, robustSE_EGARCH_GED, ht_EGARCH_GED, scores_EGARCH_GED, resid_EGARCH_GED, likelihood_EGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','GED',nEGARCH_GED(j),const);
@@ -1972,8 +1972,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
         % 6.TGARCH-GED
     elseif BIC_opt{j}==19
         [parameters_TGARCH_GED, LLF_TGARCH_GED, stderrors_TGARCH_GED, robustSE_TGARCH_GED, ht_TGARCH_GED, scores_TGARCH_GED, resid_TGARCH_GED, likelihood_TGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','GED',nTGARCH_GED(j),const);
@@ -2029,7 +2029,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % 7.GJRGARCH-GED
     elseif BIC_opt{j}==20
         [parameters_GJRGARCH_GED, LLF_GJRGARCH_GED, stderrors_GJRGARCH_GED, robustSE_GJRGARCH_GED, ht_GJRGARCH_GED, scores_GJRGARCH_GED, resid_GJRGARCH_GED, likelihood_GJRGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','GED',nGJRGARCH_GED(j),const);
@@ -2085,7 +2085,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         %                 AVGARCH-GED
     elseif BIC_opt{j}==21
         [parameters_AVGARCH_GED, LLF_AVGARCH_GED, stderrors_AVGARCH_GED, robustSE_AVGARCH_GED, ht_AVGARCH_GED, scores_AVGARCH_GED, resid_AVGARCH_GED, likelihood_AVGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','GED',nAVGARCH_GED(j),const);
@@ -2141,8 +2141,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
     elseif BIC_opt{j}==22
         [parameters_NGARCH_GED, LLF_NGARCH_GED, stderrors_NGARCH_GED, robustSE_NGARCH_GED, ht_NGARCH_GED, scores_NGARCH_GED, resid_NGARCH_GED, likelihood_NGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','GED',nNGARCH_GED(j),const);
         BIC_NGARCH_GED = 2*LLF_NGARCH_GED+log(t)*size(parameters_NGARCH_GED,1);
@@ -2197,7 +2197,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==23
         [parameters_NAGARCH_GED, LLF_NAGARCH_GED, stderrors_NAGARCH_GED, robustSE_NAGARCH_GED, ht_NAGARCH_GED, scores_NAGARCH_GED, resid_NAGARCH_GED, likelihood_NAGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','GED',nNAGARCH_GED(j),const);
         BIC_NAGARCH_GED = 2*LLF_NAGARCH_GED+log(t)*size(parameters_NAGARCH_GED,1);
@@ -2252,7 +2252,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==24
         [parameters_APGARCH_GED, LLF_APGARCH_GED, stderrors_APGARCH_GED, robustSE_APGARCH_GED, ht_APGARCH_GED, scores_APGARCH_GED, resid_APGARCH_GED, likelihood_APGARCH_GED, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'APGARCH','GED',nAPGARCH_GED(j),const);
         BIC_APGARCH_GED = 2*LLF_APGARCH_GED+log(t)*size(parameters_APGARCH_GED,1);
@@ -2307,9 +2307,9 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
-        
+
+
+
         % Verteilung SKEWT
         % 1.GARCH-SKEWT
     elseif BIC_opt{j}==25
@@ -2366,7 +2366,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % % % 5.EGARCH-SKEWT
     elseif BIC_opt{j}==26
         [parameters_EGARCH_SKEWT, LLF_EGARCH_SKEWT, stderrors_EGARCH_SKEWT, robustSE_EGARCH_SKEWT, ht_EGARCH_SKEWT, scores_EGARCH_SKEWT, resid_EGARCH_SKEWT, likelihood_EGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'EGARCH','SKEWT',nEGARCH_SKEWT(j),const);
@@ -2422,7 +2422,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % 6.TGARCH-SKEWT
     elseif BIC_opt{j}==27
         [parameters_TGARCH_SKEWT, LLF_TGARCH_SKEWT, stderrors_TGARCH_SKEWT, robustSE_TGARCH_SKEWT, ht_TGARCH_SKEWT, scores_TGARCH_SKEWT, resid_TGARCH_SKEWT, likelihood_TGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','SKEWT',nTGARCH_SKEWT(j),const);
@@ -2478,7 +2478,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         % 7.GJRGARCH-SKEWT
     elseif BIC_opt{j}==28
         [parameters_GJRGARCH_SKEWT, LLF_GJRGARCH_SKEWT, stderrors_GJRGARCH_SKEWT, robustSE_GJRGARCH_SKEWT, ht_GJRGARCH_SKEWT, scores_GJRGARCH_SKEWT, resid_GJRGARCH_SKEWT, likelihood_GJRGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'GJRGARCH','SKEWT',nGJRGARCH_SKEWT(j),const);
@@ -2534,7 +2534,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
         %                 AVGARCH-SKEWT
     elseif BIC_opt{j}==29
         [parameters_AVGARCH_SKEWT, LLF_AVGARCH_SKEWT, stderrors_AVGARCH_SKEWT, robustSE_AVGARCH_SKEWT, ht_AVGARCH_SKEWT, scores_AVGARCH_SKEWT, resid_AVGARCH_SKEWT, likelihood_AVGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'AVGARCH','SKEWT',nAVGARCH_SKEWT(j),const);
@@ -2591,8 +2591,8 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
-        
+
+
     elseif BIC_opt{j}==30
         [parameters_NGARCH_SKEWT, LLF_NGARCH_SKEWT, stderrors_NGARCH_SKEWT, robustSE_NGARCH_SKEWT, ht_NGARCH_SKEWT, scores_NGARCH_SKEWT, resid_NGARCH_SKEWT, likelihood_NGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NGARCH','SKEWT',nNGARCH_SKEWT(j),const);
         BIC_NGARCH_SKEWT = 2*LLF_NGARCH_SKEWT+log(t)*size(parameters_NGARCH_SKEWT,1);
@@ -2648,7 +2648,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==31
         [parameters_NAGARCH_SKEWT, LLF_NAGARCH_SKEWT, stderrors_NAGARCH_SKEWT, robustSE_NAGARCH_SKEWT, ht_NAGARCH_SKEWT, scores_NAGARCH_SKEWT, resid_NAGARCH_SKEWT, likelihood_NAGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'NAGARCH','SKEWT',nNAGARCH_SKEWT(j),const);
         BIC_NAGARCH_SKEWT = 2*LLF_NAGARCH_SKEWT+log(t)*size(parameters_NAGARCH_SKEWT,1);
@@ -2704,7 +2704,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-        
+
     elseif BIC_opt{j}==32
         [parameters_APGARCH_SKEWT, LLF_APGARCH_SKEWT, stderrors_APGARCH_SKEWT, robustSE_APGARCH_SKEWT, ht_APGARCH_SKEWT, scores_APGARCH_SKEWT, resid_APGARCH_SKEWT, likelihood_APGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,0,1,'APGARCH','SKEWT',nAPGARCH_SKEWT(j),const);
         BIC_APGARCH_SKEWT = 2*LLF_APGARCH_SKEWT+log(t)*size(parameters_APGARCH_SKEWT,1);

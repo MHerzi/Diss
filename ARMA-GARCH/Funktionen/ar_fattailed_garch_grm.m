@@ -1,4 +1,4 @@
-function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_fattailed_garch_grm(data , p , q , errors, arlag, const, startingvals, options)
+function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_fattailed_garch_grm(data , p , q , errors, arlag, const, startingvals, options, computeInference)
 % PURPOSE:
 %     FATTAILED_GARCH(P,Q) parameter estimation with different error distributions, the NOrmal, The T,
 %           and the Generalized Error Distribution
@@ -79,6 +79,9 @@ function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, E
 % Modofication: 02/21/2010
 
 t=size(data,1);
+if nargin < 9 || isempty(computeInference)
+    computeInference = true;
+end
 if nargin<8
     options=[];
 end
@@ -237,19 +240,23 @@ if EXITFLAG<=0
     fprintf(1,'Not Sucessful! \n')
 end
 
-% parameters(find(parameters    <  0)) = 0;
-% parameters(find(parameters(1) <= 0)) = realmin;
-hess = hessian_2sided('ar_fattailed_garchlikelihood_grm',parameters,data,p,q,errortype, arlag, const);
-[Holder, ht, likelihood]=ar_fattailed_garchlikelihood_grm(parameters,data,p,q,errortype, arlag, const);
-likelihood=-likelihood;
-stderrors=hess^(-1);
-
-if const == 1
-    t = t - (arlag-1);
-else
-    t = t - arlag;
-end
-if nargout > 4
+stderrors = [];
+robustSE = [];
+ht = [];
+scores = [];
+likelihood = [];
+if computeInference
+    hess = hessian_2sided('ar_fattailed_garchlikelihood_grm', ...
+        parameters, data, p, q, errortype, arlag, const);
+    [~, ht, likelihood] = ar_fattailed_garchlikelihood_grm( ...
+        parameters, data, p, q, errortype, arlag, const);
+    likelihood = -likelihood;
+    stderrors = hess \ eye(size(hess));
+    if const == 1
+        t = t - (arlag-1);
+    else
+        t = t - arlag;
+    end
     h=max(abs(parameters/2),1e-2)*eps^(1/3);
     hplus=parameters+h;
     hminus=parameters-h;
@@ -267,8 +274,8 @@ if nargout > 4
         [HOLDER, HOLDER1, indivlike] = ar_fattailed_garchlikelihood_grm(hparameters,data,p,q,errortype, arlag, const);
         likelihoodsminus(:,i)=indivlike;
     end
-    scores=(likelihoodsplus-likelihoodsminus)./(2*repmat(h',t,1));
-    scores=scores-repmat(mean(scores),t,1);
+    scores = (likelihoodsplus-likelihoodsminus) ./ (2 * h');
+    scores = scores - mean(scores, 1);
     B=scores'*scores;
     robustSE=stderrors*B*stderrors;
 end

@@ -1,499 +1,273 @@
-% bei archimedischen Copulas wird nur der Copulaparameter in varargin
-% übergeben 
-% bei der Gauss Copula wird die Korrelationsstruktur via varargin
-% übergeben
-% bei der t-Copula wird die Korrelationsstruktur via varargin{1} übergeben 
-% und der Freiheitsgrad mit varargin{2}
-% !!!!!!!!!!!!!!! Achtung !!!!!!!!!!!!!!!!!!!!!
-% Im bivariaten Fall muss für die Gauss und t-Copula eine
-% Korrelationsmatrix eingegeben werden. Ein einfache r
-% Korrelationsparameter führt zu falschen Dichten!
+function varargout = copulapdfmultivariat_grm(family, data, varargin)
+%COPULAPDFMULTIVARIAT_GRM Multivariate copula probability density.
+%   DENSITY = COPULAPDFMULTIVARIAT_GRM(FAMILY, U, PARAMETER) evaluates a
+%   Gaussian, t, Clayton, rotated Clayton, Gumbel, or Frank copula. U must
+%   contain observations in rows and variables in columns.
 %
-%   Author: Valentin Braun
-%   Phd Student in finance Goethe Universität
-function varargout = copulapdfmultivariat_grm(family, data, varargin) 
+%   Gaussian: PARAMETER is a correlation matrix.
+%   t:         the inputs are correlation matrix and degrees of freedom.
+%   Others:    PARAMETER is a scalar or one value per observation.
+%
+%   This implementation is entirely numeric. It replaces the previous
+%   run-time symbolic differentiation and avoids explicit inverses.
 
-% Familie der Archimedian Copulas definieren und bei falschen Input
-% Parametern Fehlermeldung ausgeben
-if ischar(family)
-    families = {'gaussian', 't', 'clayton','frank','gumbel', 'rotclayton'};
-
-    i = strmatch(lower(family), families);
-    if numel(i) > 1
-        error('Multivariate Copulas bestehen nur aus einer Copulafamilie');
-    elseif numel(i) == 1
-        family = families{i};
-    else
-        error('stats:copulafit:InvalidFamily', ...
-              'Unrecognized copula family: ''%s''',family);
+    if nargout > 2
+        error('Diss:Copula:TooManyOutputs', ...
+            'At most density and the dependence parameter are returned.');
     end
-else
-    error('stats:copulafit:InvalidFamily', ...
-          'FAMILY must be a copula family name.');
+    family = validatestring(family, ...
+        {'gaussian', 't', 'clayton', 'frank', 'gumbel', 'rotclayton'}, ...
+        mfilename, 'family');
+    validateattributes(data, {'double'}, ...
+        {'2d', 'real', 'finite', 'nonempty'}, mfilename, 'data');
+    if any(data(:) <= 0 | data(:) >= 1)
+        error('Diss:Copula:DataOutsideOpenUnitInterval', ...
+            'Copula observations must be strictly between zero and one.');
+    end
+
+    [observationCount, dimension] = size(data);
+    if dimension < 2 || dimension > 14
+        error('Diss:Copula:InvalidDimension', ...
+            'Copula dimension must be between 2 and 14.');
+    end
+
+    switch family
+        case 'gaussian'
+            requireParameterCount(varargin, 1, family);
+            correlationMatrix = validateCorrelationMatrix( ...
+                varargin{1}, dimension, family);
+            density = gaussianCopulaDensity(data, correlationMatrix);
+            dependenceParameter = correlationMatrix;
+
+        case 't'
+            requireParameterCount(varargin, 2, family);
+            correlationMatrix = validateCorrelationMatrix( ...
+                varargin{1}, dimension, family);
+            degreesOfFreedom = varargin{2};
+            validateattributes(degreesOfFreedom, {'double'}, ...
+                {'scalar', 'real', 'finite', 'positive'}, ...
+                mfilename, 'degreesOfFreedom');
+            density = tCopulaDensity( ...
+                data, correlationMatrix, degreesOfFreedom);
+            dependenceParameter = correlationMatrix;
+
+        case {'clayton', 'rotclayton'}
+            requireParameterCount(varargin, 1, family);
+            theta = expandObservationParameter( ...
+                varargin{1}, observationCount, 'theta');
+            theta = max(theta, 1e-3);
+            if strcmp(family, 'rotclayton')
+                data = 1 - data;
+            end
+            density = claytonCopulaDensity(data, theta);
+            dependenceParameter = theta;
+
+        case 'gumbel'
+            requireParameterCount(varargin, 1, family);
+            theta = expandObservationParameter( ...
+                varargin{1}, observationCount, 'theta');
+            if any(theta < 1)
+                error('Diss:Copula:InvalidGumbelParameter', ...
+                    'Gumbel parameters must be greater than or equal to one.');
+            end
+            density = gumbelCopulaDensity(data, theta);
+            dependenceParameter = theta;
+
+        case 'frank'
+            requireParameterCount(varargin, 1, family);
+            theta = expandObservationParameter( ...
+                varargin{1}, observationCount, 'theta');
+            if dimension > 2 && any(theta <= 0)
+                error('Diss:Copula:InvalidFrankParameter', ...
+                    ['Frank parameters must be positive for dimensions ', ...
+                     'greater than two.']);
+            end
+            density = frankCopulaDensity(data, theta);
+            dependenceParameter = theta;
+    end
+
+    varargout{1} = density;
+    if nargout >= 2
+        varargout{2} = dependenceParameter;
+    end
 end
 
-% Aufbereiten der Informationen aus varargin 
-z = data; %varargin{1}(:,1:end);
-DatasetSize = size(z, 2);
-[T,N]=size(z);
-
-% Überprüfen ob Anzahl der Indices korrekt ist; Beschränkung auf 10 Indices
-if DatasetSize <2 || DatasetSize > 14
-    error('Falsche Indexanzahl')
+function density = gaussianCopulaDensity(data, correlationMatrix)
+    transformedData = norminv(data);
+    lowerFactor = chol(correlationMatrix, 'lower');
+    correlatedQuadraticForm = sum( ...
+        (lowerFactor \ transformedData').^2, 1)';
+    independentQuadraticForm = sum(transformedData.^2, 2);
+    logDensity = -0.5 * ...
+        (correlatedQuadraticForm - independentQuadraticForm) - ...
+        sum(log(diag(lowerFactor)));
+    density = exp(logDensity);
 end
 
-% Auswahl der übergebenen Copula Familie und der korrekten Optimierungsfunktion 
-switch family   
-    case 'gaussian'
-        % Transformieren in normalverteilte Variablen via inverse
-        % Normalverteilungsfunktion und rho bestimmen
-        trdata = norminv(z);
-        rho = varargin{1};
-        % Überprüfen dass immer eine Korrelationsmatrix und nicht nur ein
-        % Korrelationskoeffizient angegeben wird
-        if numel(rho) < 4
-            error('Gauss Copula benötigt eine Korrelationsmatrix. Korrelationskoeffizient ist ist nicht ausreichend');
-        end
-        % Bestimmen des oberen Cholesky Faktors
-        [R,err] = cholcov(rho,0);
-        if (err ~= 0) || any(diag(rho) ~= 1)
-%             error('Rho must be symmetric and positive definite.');
-            LL = NaN(T,1); % Bei Fehlermeldung wird NaN als Loglikelihood Wert übergeben
-        else
-            % Berechnen der Logarithmierten Dichtefunktion der Gauss Copula
-            logSqrtDetRho = sum(log(diag(R)));
-            LL = trdata/R;
-            LL = -0.5 .* sum(LL.^2 - trdata.^2,2) - logSqrtDetRho;   
-        end
-        % Bestimmen der Dichte
-        density.Gauss = exp(LL);
-        % ausgeben der Dichte
-        varargout{1} = density.Gauss;
-        % ausgeben der korrelationsmatrix
-        varargout{2} = rho;
-        
-    case 't'
-        % Übergeben des Copula Parameters (DoF)
-        DoF = varargin{2};
-        % Übergeben des Copula Parameters (Rho)
-        rho = varargin{1};
-        % Überprüfen dass immer eine Korrelationsmatrix und nicht nur ein
-        % Korrelationskoeffizient angegeben wird
-        if numel(rho) < 4
-            error('t-Copula benötigt eine Korrelationsmatrix. Korrelationskoeffizient ist ist nicht ausreichend');
-        end
-        % Inverse der t-Verteilung für Daten~[0,1]
-        trdata = tinv(z, DoF);        
-        Rt=repmat(rho,[1 1 T]);
-%         % standardisierte t-Copula Loglikelihood Funktion; Chen, Fan,
-%         % Patton (2004)
-%         LL=zeros(T,1); 
-%         for i=1:T
-%             LL(i) = gammaln((DoF+N)/2) + (N-1)*gammaln(DoF/2) - N*gammaln((DoF+1)/2) - 0.5*log(det(Rt(:,:,i)));
-%             LL(i) = LL(i) - (DoF+N)/2*log(1+trdata(i,:)*inv(Rt(:,:,i))*trdata(i,:)'./(DoF-2)); 
-%             LL(i) = LL(i) + (DoF+1)/2*sum(log(1+(trdata(i,:).^2/(DoF-2))));
-%         end
-        % NICHT standardisierte t-Copula Loglikelihood Funktion
-        LL=zeros(T,1); 
-        for i=1:T
-            LL(i) = gammaln((DoF+N)/2) + (N-1)*gammaln(DoF/2) - N*gammaln((DoF+1)/2) - 0.5*log(det(Rt(:,:,i)));
-            LL(i) = LL(i) - (DoF+N)/2*log(1+trdata(i,:)*inv(Rt(:,:,i))*trdata(i,:)'./DoF); 
-            LL(i) = LL(i) + (DoF+1)/2*sum(log(1+(trdata(i,:).^2/DoF)));
-        end
-        % t-Copula Dichte
-        density.t = exp(LL);
-        % ausgeben der Dichte
-        varargout{1} = density.t;
-        % ausgeben der Korrelationsmatrix
-        varargout{2} = rho;
-        
-        
-    case {'clayton', 'rotclayton'}
-        % Übergeben des Copula Parameters
-        cp = varargin{1};
-        cp(cp<1e-3) = 1e-3; % Sicherstellen dass der Clayton CopParameter immer min 1e-3 beträgt
-        % Auswahl der Dichtefunktion unter Berücksichtigung der
-        % Anzahl der Indices
-        if DatasetSize == 2
-            [density.Clayton] = (cp.*(1./cp + 1))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp - 1).^(1./cp + 2));
-        elseif DatasetSize == 3
-            [density.Clayton] = (cp.^2.*(1./cp + 1).*(1./cp + 2))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp - 2).^(1./cp + 3));
-        elseif DatasetSize == 4
-            [density.Clayton] = (cp.^3.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp - 3).^(1./cp + 4));
-        elseif DatasetSize == 5
-            [density.Clayton] = (cp.^4.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp - 4).^(1./cp + 5));
-        elseif DatasetSize == 6
-            [density.Clayton] = (cp.^5.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp - 5).^(1./cp + 6));
-        elseif DatasetSize == 7
-            [density.Clayton] = (cp.^6.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp - 6).^(1./cp + 7));
-        elseif DatasetSize == 8
-            [density.Clayton] = (cp.^7.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp - 7).^(1./cp + 8)) ;
-        elseif DatasetSize == 9
-            [density.Clayton] = (cp.^8.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7).*(1./cp + 8))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*z(:,9).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp + 1./z(:,9).^cp - 8).^(1./cp + 9));
-        elseif DatasetSize == 10
-            [density.Clayton] = (cp.^9.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7).*(1./cp + 8).*(1./cp + 9))./(z(:,1).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*z(:,9).^(cp + 1).*z(:,10).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp + 1./z(:,9).^cp + 1./z(:,10).^cp - 9).^(1./cp + 10));
-        elseif DatasetSize == 11
-            [density.Clayton] = (cp.^10.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7).*(1./cp + 8).*(1./cp + 9).*(1./cp + 10))./(z(:,1).^(cp + 1).*z(:,10).^(cp + 1).*z(:,11).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*z(:,9).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,10).^cp + 1./z(:,11).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp + 1./z(:,9).^cp - 9).^(1./cp + 11));
-        elseif DatasetSize == 12
-            [density.Clayton] = (cp.^11.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7).*(1./cp + 8).*(1./cp + 9).*(1./cp + 10).*(1./cp + 11))./(z(:,1).^(cp + 1).*z(:,10).^(cp + 1).*z(:,11).^(cp + 1).*z(:,12).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*z(:,9).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,10).^cp + 1./z(:,11).^cp + 1./z(:,12).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp + 1./z(:,9).^cp - 11).^(1./cp + 12));
-        elseif DatasetSize == 13
-            [density.Clayton] = (cp.^12.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7).*(1./cp + 8).*(1./cp + 9).*(1./cp + 10).*(1./cp + 11).*(1./cp + 12))./(z(:,1).^(cp + 1).*z(:,10).^(cp + 1).*z(:,11).^(cp + 1).*z(:,12).^(cp + 1).*z(:,13).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*z(:,9).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,10).^cp + 1./z(:,11).^cp + 1./z(:,12).^cp + 1./z(:,13).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp + 1./z(:,9).^cp - 12).^(1./cp + 13));
-        elseif DatasetSize == 14
-            [density.Clayton] = (cp.^13.*(1./cp + 1).*(1./cp + 2).*(1./cp + 3).*(1./cp + 4).*(1./cp + 5).*(1./cp + 6).*(1./cp + 7).*(1./cp + 8).*(1./cp + 9).*(1./cp + 10).*(1./cp + 11).*(1./cp + 12).*(1./cp + 13))./(z(:,1).^(cp + 1).*z(:,10).^cp + 1).*z(:,11).^(cp + 1).*z(:,12).^(cp + 1).*z(:,13).^(cp + 1).*z(:,14).^(cp + 1).*z(:,2).^(cp + 1).*z(:,3).^(cp + 1).*z(:,4).^(cp + 1).*z(:,5).^(cp + 1).*z(:,6).^(cp + 1).*z(:,7).^(cp + 1).*z(:,8).^(cp + 1).*z(:,9).^(cp + 1).*(1./z(:,1).^cp + 1./z(:,10).^cp + 1./z(:,11).^cp + 1./z(:,12).^cp + 1./z(:,13).^cp + 1./z(:,14).^cp + 1./z(:,2).^cp + 1./z(:,3).^cp + 1./z(:,4).^cp + 1./z(:,5).^cp + 1./z(:,6).^cp + 1./z(:,7).^cp + 1./z(:,8).^cp + 1./z(:,9).^cp - 13).^(1./cp + 14);
-        end
-        varargout{1} = density.Clayton;    
-       
-        
-    case 'gumbel'
- % Auswahl der Anzahl der Dichtefunktion unter Berücksichtigung der
-        % Anzahl der Indices
-        
-        % Variablen als numerische Variablen characterisieren
-        clear v1 v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14  cp
-        syms v1 v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14 cp
-        switch DatasetSize
-            case 2
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp   )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-            case 3
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp    )^(1/cp)  )  ) ;  % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-            case 4
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp   )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-            case 5
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp    )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-            case 6
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp    )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-            case 7
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp    )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-            case 8
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp    )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-            case 9
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp + (-log(v9))^cp    )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-            case 10
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp + (-log(v9))^cp + (-log(v10))^cp   )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-            case 11
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp + (-log(v9))^cp + (-log(v10))^cp + (-log(v11))^cp    )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-            case 12
-                g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp + (-log(v9))^cp + (-log(v10))^cp + (-log(v11))^cp + (-log(v12))^cp      )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-                gdiff = diff(gdiff, v12); %12 Variablen
-            case 13
-                 g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp + (-log(v9))^cp + (-log(v10))^cp + (-log(v11))^cp + (-log(v12))^cp + (-log(v13))^cp      )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-                gdiff = diff(gdiff, v12); %12 Variablen
-                gdiff = diff(gdiff, v13); % 13 Variablen
-            case 14
-                 g = exp(  -1*(  (  (-log(v1))^cp + (-log(v2))^cp + (-log(v3))^cp + (-log(v4))^cp + (-log(v5))^cp + (-log(v6))^cp + (-log(v7))^cp + (-log(v8))^cp + (-log(v9))^cp + (-log(v10))^cp + (-log(v11))^cp + (-log(v12))^cp + (-log(v13))^cp + (-log(v14))^cp       )^(1/cp)  )  );   % Aufpassen auf Klammersetzen
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-                gdiff = diff(gdiff, v12); %12 Variablen
-                gdiff = diff(gdiff, v13); % 13 Variablen     
-                gdiff = diff(gdiff, v14); % 14 Variablen
-        end    
-        
-    case 'frank'
-    % Auswahl der Anzahl der Dichtefunktion unter Berücksichtigung der
-        % Anzahl der Indices
-        
-        % Variablen als numerische Variablen characterisieren
-        clear v1 v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14  cp
-        syms v1 v2 v3 v4 v5 v6 v7 v8 v9 v10 v11 v12 v13 v14  cp
-        switch DatasetSize
-            case 2
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-            case 3
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-            case 4
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-            case 5
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-            case 6
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-            case 7
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-            case 8
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-            case 9
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1) * (exp(-v9*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-            case 10
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1) * (exp(-v9*cp)-1) * (exp(-v10*cp)-1)    /((exp(-cp)-1)^(DatasetSize-1))  )  );  
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-            case 11
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1) * (exp(-v9*cp)-1) * (exp(-v10*cp)-1)* (exp(-v11*cp)-1)     /((exp(-cp)-1)^(DatasetSize-1))  )  );
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-            case 12
-                 g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1) * (exp(-v9*cp)-1) * (exp(-v10*cp)-1)* (exp(-v11*cp)-1)* (exp(-v12*cp)-1)     /((exp(-cp)-1)^(DatasetSize-1))  )  );
-                % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-                gdiff = diff(gdiff, v12); % 12 Variablen
-            case 13 
-                 g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1) * (exp(-v9*cp)-1) * (exp(-v10*cp)-1)* (exp(-v11*cp)-1)* (exp(-v12*cp)-1)* (exp(-v13*cp)-1)     /((exp(-cp)-1)^(DatasetSize-1))  )  );
-                 % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-                gdiff = diff(gdiff, v12); % 12 Variablen
-                gdiff = diff(gdiff, v13); % 13 Variablen
-            case 14
-                g = -1/cp * log( 1 + (   (exp(-v1*cp)-1) * (exp(-v2*cp)-1) * (exp(-v3*cp)-1) * (exp(-v4*cp)-1) * (exp(-v5*cp)-1) * (exp(-v6*cp)-1) * (exp(-v7*cp)-1) * (exp(-v8*cp)-1) * (exp(-v9*cp)-1) * (exp(-v10*cp)-1)* (exp(-v11*cp)-1)* (exp(-v12*cp)-1)* (exp(-v13*cp)-1)* (exp(-v14*cp)-1)     /((exp(-cp)-1)^(DatasetSize-1))  )  );
-                 % Differenzieren der Copula Funktion um Dichte zu bestimmen
-                gdiff = diff(g, v1); % 1 Variablen
-                gdiff = diff(gdiff, v2); % 2 Variablen
-                gdiff = diff(gdiff, v3); % 3 Variablen
-                gdiff = diff(gdiff, v4); % 4 Variablen
-                gdiff = diff(gdiff, v5); % 5 Variablen
-                gdiff = diff(gdiff, v6); % 6 Variablen
-                gdiff = diff(gdiff, v7); % 7 Variablen
-                gdiff = diff(gdiff, v8); % 8 Variablen
-                gdiff = diff(gdiff, v9); % 9 Variablen
-                gdiff = diff(gdiff, v10); % 10 Variablen
-                gdiff = diff(gdiff, v11); % 11 Variablen
-                gdiff = diff(gdiff, v12); % 12 Variablen
-                gdiff = diff(gdiff, v13); % 13 Variablen
-                gdiff = diff(gdiff, v14); % 14 Variablen
-        end
+function density = tCopulaDensity(data, correlationMatrix, degreesOfFreedom)
+    [~, dimension] = size(data);
+    transformedData = tinv(data, degreesOfFreedom);
+    lowerFactor = chol(correlationMatrix, 'lower');
+    quadraticForm = sum((lowerFactor \ transformedData').^2, 1)';
+
+    logNormalizingConstant = gammaln((degreesOfFreedom + dimension) / 2) + ...
+        (dimension - 1) * gammaln(degreesOfFreedom / 2) - ...
+        dimension * gammaln((degreesOfFreedom + 1) / 2) - ...
+        sum(log(diag(lowerFactor)));
+    logDensity = logNormalizingConstant - ...
+        (degreesOfFreedom + dimension) / 2 .* ...
+        log1p(quadraticForm ./ degreesOfFreedom) + ...
+        (degreesOfFreedom + 1) / 2 .* ...
+        sum(log1p(transformedData.^2 ./ degreesOfFreedom), 2);
+    density = exp(logDensity);
 end
 
-% Einsetzen der Variablenvektoren in die bestimmten Dichtefunktionen (nur
-% für multivariate Gumbel und Frank Copula)
-switch lower(family)
-    case {'gumbel', 'frank'}
-
-        % gdiff in Vektorenform umwandeln um mit Daten rechnen zu können
-        gdiff = vectorize(gdiff);
-        % Löschen der numerischen Variablen
-        clear v1 v2 v3 v4 v5 v6 v7 v8 v9 v10  cp g
-        % Konvertieren des Formel Strings in nutzbare Formel
-        gdiff = inline(gdiff);
-        % Bestimmen der Variablenvektoren aus den empirischen
-        % Marginalverteilungen entsprechend der Anzahl der Indices (max =
-        % 10)
-        v = [];
-        for k = 1:DatasetSize
-           i = genvarname('v', who);
-           eval([i ' = z(:,k);'])
-        end
-        % Übergeben des Copula Parameters
-        cp = varargin{1};
-        % Einsetzen der variablenvektoren in neu definierte Funktionsgleichung gdiff
-        switch DatasetSize
-            case 2
-                [CopulaDensity] = gdiff(cp,v1,v2);
-            case 3
-                [CopulaDensity] = gdiff(cp,v1,v2,v3);
-            case 4
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4);
-            case 5
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4,v5);
-            case 6
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4,v5,v6);
-            case 7
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4,v5,v6,v7);
-            case 8
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4,v5,v6,v7,v8);
-            case 9
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4,v5,v6,v7,v8,v9);
-            case 10
-                [CopulaDensity] = gdiff(cp,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10);
-        end      
-        varargout{1} = CopulaDensity;  
-
+function density = claytonCopulaDensity(data, theta)
+    dimension = size(data, 2);
+    coefficient = prod(1 + theta .* (1:dimension-1), 2);
+    generatorSum = sum(data .^ (-theta), 2) - dimension + 1;
+    density = coefficient .* prod(data .^ (-theta - 1), 2) .* ...
+        generatorSum .^ (-dimension - 1 ./ theta);
 end
-        
+
+function density = gumbelCopulaDensity(data, theta)
+    dimension = size(data, 2);
+    negativeLogData = -log(data);
+    alpha = 1 ./ theta;
+    generatorSum = sum(negativeLogData .^ theta, 2);
+
+    derivativeCoefficients = zeros(numel(theta), dimension + 1);
+    derivativeCoefficients(:, 1) = 1;
+    for derivativeOrder = 0:dimension-1
+        nextCoefficients = zeros(size(derivativeCoefficients));
+        for powerIndex = 0:derivativeOrder
+            currentCoefficient = ...
+                derivativeCoefficients(:, powerIndex + 1);
+            nextCoefficients(:, powerIndex + 1) = ...
+                nextCoefficients(:, powerIndex + 1) + ...
+                currentCoefficient .* ...
+                (powerIndex .* alpha - derivativeOrder);
+            nextCoefficients(:, powerIndex + 2) = ...
+                nextCoefficients(:, powerIndex + 2) - ...
+                alpha .* currentCoefficient;
+        end
+        derivativeCoefficients = nextCoefficients;
+    end
+
+    derivativePolynomial = zeros(size(theta));
+    for powerIndex = 0:dimension
+        derivativePolynomial = derivativePolynomial + ...
+            derivativeCoefficients(:, powerIndex + 1) .* ...
+            generatorSum .^ (powerIndex .* alpha - dimension);
+    end
+    positiveGeneratorDerivative = (-1)^dimension .* ...
+        exp(-generatorSum .^ alpha) .* derivativePolynomial;
+    if any(positiveGeneratorDerivative <= 0 | ...
+            ~isfinite(positiveGeneratorDerivative))
+        error('Diss:Copula:GumbelNumericalFailure', ...
+            'The Gumbel generator derivative is not positive and finite.');
+    end
+
+    logMarginalDerivativeProduct = dimension .* log(theta) + ...
+        (theta - 1) .* sum(log(negativeLogData), 2) - ...
+        sum(log(data), 2);
+    density = exp(log(positiveGeneratorDerivative) + ...
+        logMarginalDerivativeProduct);
+end
+
+function density = frankCopulaDensity(data, theta)
+    [observationCount, dimension] = size(data);
+    density = ones(observationCount, 1);
+    nonIndependent = abs(theta) >= 1e-7;
+    if ~any(nonIndependent)
+        return
+    end
+
+    activeTheta = theta(nonIndependent);
+    activeData = data(nonIndependent, :);
+    generatorArguments = -log( ...
+        expm1(-activeTheta .* activeData) ./ expm1(-activeTheta));
+    generatorSum = sum(generatorArguments, 2);
+    q = -expm1(-activeTheta) .* exp(-generatorSum);
+
+    polynomialCoefficients = eulerianPolynomial(dimension - 1);
+    polynomial = zeros(size(q));
+    for powerIndex = 0:numel(polynomialCoefficients)-1
+        polynomial = polynomial + ...
+            polynomialCoefficients(powerIndex + 1) .* q.^powerIndex;
+    end
+    polylogarithm = q .* polynomial ./ (1 - q).^dimension;
+    positiveGeneratorDerivative = polylogarithm ./ activeTheta;
+    marginalDerivativeMagnitudes = activeTheta ./ ...
+        expm1(activeTheta .* activeData);
+    if any(positiveGeneratorDerivative <= 0) || ...
+            any(marginalDerivativeMagnitudes(:) <= 0)
+        error('Diss:Copula:FrankNumericalFailure', ...
+            'The Frank density could not be evaluated as a positive value.');
+    end
+    logDensity = log(positiveGeneratorDerivative) + ...
+        sum(log(marginalDerivativeMagnitudes), 2);
+    density(nonIndependent) = exp(logDensity);
+end
+
+function coefficients = eulerianPolynomial(order)
+    coefficients = 1;
+    for currentOrder = 2:order
+        previous = coefficients;
+        coefficients = zeros(1, currentOrder);
+        for index = 0:currentOrder-1
+            if index <= currentOrder - 2
+                coefficients(index + 1) = coefficients(index + 1) + ...
+                    (index + 1) * previous(index + 1);
+            end
+            if index >= 1
+                coefficients(index + 1) = coefficients(index + 1) + ...
+                    (currentOrder - index) * previous(index);
+            end
+        end
+    end
+end
+
+function parameter = expandObservationParameter( ...
+    parameter, observationCount, argumentName)
+    validateattributes(parameter, {'double'}, ...
+        {'vector', 'real', 'finite', 'nonempty'}, mfilename, argumentName);
+    if isscalar(parameter)
+        parameter = repmat(parameter, observationCount, 1);
+    elseif numel(parameter) == observationCount
+        parameter = parameter(:);
+    else
+        error('Diss:Copula:InvalidParameterLength', ...
+            '%s must be scalar or contain one value per observation.', ...
+            argumentName);
+    end
+end
+
+function correlationMatrix = validateCorrelationMatrix( ...
+    correlationMatrix, dimension, family)
+    validateattributes(correlationMatrix, {'double'}, ...
+        {'2d', 'real', 'finite', 'square'}, mfilename, ...
+        'correlationMatrix');
+    if ~isequal(size(correlationMatrix), [dimension, dimension])
+        error('Diss:Copula:InvalidCorrelationSize', ...
+            '%s copula requires a dimension-by-dimension matrix.', family);
+    end
+    if norm(correlationMatrix - correlationMatrix', 'fro') > 1e-10 || ...
+            any(abs(diag(correlationMatrix) - 1) > 1e-10)
+        error('Diss:Copula:InvalidCorrelationMatrix', ...
+            'The correlation matrix must be symmetric with unit diagonal.');
+    end
+    [~, cholStatus] = chol(correlationMatrix, 'lower');
+    if cholStatus ~= 0
+        error('Diss:Copula:NonPositiveDefiniteCorrelation', ...
+            'The correlation matrix must be positive definite.');
+    end
+end
+
+function requireParameterCount(parameters, expectedCount, family)
+    if numel(parameters) ~= expectedCount
+        error('Diss:Copula:InvalidParameterCount', ...
+            '%s copula expects %d dependence parameter input(s).', ...
+            family, expectedCount);
+    end
+end

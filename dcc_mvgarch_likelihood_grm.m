@@ -1,87 +1,39 @@
-function [logL, Rt, likelihoods, Qt]=dcc_mvgarch_likelihood_grm(params, stdresid, P, Q, epsilon);
-% PURPOSE:
-%        Restricted likelihood for use in the DCC_MVGARCH estimation and
-%        returns the likelihood of the 2SQMLE estimates of the DCC parameters
-% 
-% USAGE:
-%        [logL, Rt, likelihoods]=dcc_garch_likelihood(params, stdresid, P, Q)
-% 
-% INPUTS:
-%    params      - A P+Q by 1 vector of parameters of the form [dccPparameters;dccQparameters]
-%    stdresid    - A matrix, t x k of residuals standardized by their conditional standard deviation
-%    P           - The innovation order of the DCC Garch process
-%    Q           - The AR order of the DCC estimator
-% 
-% OUTPUTS:
-%    logL        - Th ecalculate Quasi-Likelihood (negative)
-%    Rt          - a k x k x t 3 dimesnaional array of conditional correlations
-%    likelihoods - a t by 1 vector of quasi likelihoods (negative)
-% 
-% 
-% COMMENTS:
-% 
-% 
-% Author: Kevin Sheppard
-% kevin.sheppard@economics.ox.ac.uk
-% Revision: 2    Date: 12/31/2001
+function [logL, Rt, likelihoods, Qt] = ...
+    dcc_mvgarch_likelihood_grm(params, stdresid, P, Q, ~)
+%DCC_MVGARCH_LIKELIHOOD_GRM Negative Gaussian DCC quasi-likelihood.
+%   Parameter values are square roots of the conventional DCC
+%   coefficients, preserving the original model parameterization.
 
+    penalty = 1e9;
+    [observationCount, seriesCount] = size(stdresid); %#ok<ASGLU>
+    if ~isValidParameterVector(params, P + Q)
+        [logL, Rt, likelihoods, Qt] = invalidOutputs(penalty);
+        return
+    end
 
+    identityMatrix = eye(seriesCount);
+    archMatrices = identityMatrix .* reshape(params(1:P), 1, 1, P);
+    garchMatrices = identityMatrix .* ...
+        reshape(params(P + (1:Q)), 1, 1, Q);
+    emptyMatrices = zeros(seriesCount, seriesCount, 0);
 
-[t,k]=size(stdresid);
-a=params(1:P);
-b=params(P+1:P+Q);
-sumA=sum(a);
-sumB=sum(b);
-
-%First compute Qbar, the unconditional Correlation Matrix
-Qbar=cov(stdresid);
-
-% Next compute Qt
-m=max(P,Q);
-Qt=zeros(k,k,t+m);
-Rt=zeros(k,k,t+m);
-violatedPSD = 0;
-Qt(:,:,1:m)=repmat(Qbar,[1 1 m]);
-Rt(:,:,1:m)=repmat(Qbar,[1 1 m]);
-logL=0;
-likelihoods=zeros(1,t+m);
-%The stdresid have epected value 1  maybe but in the variances
-stdresid=[zeros(m,k);stdresid];
-for j=(m+1):t+m
-   Qt(:,:,j)=Qbar*(1-sumA.^2-sumB.^2);   
-   for i=1:P
-     Qt(:,:,j)=Qt(:,:,j)+a(i)*(stdresid(j-i,:)'*stdresid(j-i,:))*a(i);
-   end
-   for i=1:Q
-      Qt(:,:,j)=Qt(:,:,j)+b(i)*Qt(:,:,j-i)*b(i);
-   end
-   Rtemp = Qt(:,:,j)./(sqrt(diag(Qt(:,:,j)))*sqrt(diag(Qt(:,:,j)))');
-   Rtemp = Rtemp-diag(diag(Rtemp))+eye(k); %make sure the on the main diagonal only 1s
-   Rt(:,:,j) = Rtemp;
-    maxmax = max(max(Rt(:,:,j)));
-    minmin = min(min(Rt(:,:,j)));
-    if maxmax > 1 || minmin < -1
-        violatedPSD = 1;
-    end  
-   likelihoods(j)=log(det(Rt(:,:,j)))+stdresid(j,:)*(Rt(:,:,j))^(-1)*stdresid(j,:)'; %equation is already multiplied by (-1)
-   logL=logL+likelihoods(j);
-end;
-
-Qt=Qt(:,:,(m+1:t+m));
-Rt=Rt(:,:,(m+1:t+m));
-logL=(1/2)*logL; %remmber: liklihood equation is already muliplied by (-1)!
-likelihoods=(1/2)*likelihoods(m+1:t+m);
-
-if ~isreal(logL) || isinf(logL)
-   logL=10E+8;
+    [logL, isValid, Rt, likelihoods, Qt] = ...
+        dccFilterForRequestedOutputs(nargout, stdresid, [], ...
+        cov(stdresid), archMatrices, garchMatrices, ...
+        emptyMatrices, emptyMatrices);
+    if ~isValid
+        logL = penalty;
+    end
 end
 
-if ~isreal(params) || any(isnan(params))
-    logL=10E+8;
+function tf = isValidParameterVector(params, expectedCount)
+    tf = isnumeric(params) && isreal(params) && ...
+        numel(params) == expectedCount && all(isfinite(params(:)));
 end
 
-if violatedPSD
-   logL=10E+8;
+function [logL, Rt, likelihoods, Qt] = invalidOutputs(penalty)
+    logL = penalty;
+    Rt = [];
+    likelihoods = [];
+    Qt = [];
 end
-
-

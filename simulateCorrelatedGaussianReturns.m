@@ -1,0 +1,36 @@
+function simulatedReturns = simulateCorrelatedGaussianReturns( ...
+    meanForecast, varianceForecast, correlationMatrix, simulationCount)
+%SIMULATECORRELATEDGAUSSIANRETURNS Draw correlated Gaussian returns.
+%   Correlation is applied to standardized innovations before marginal
+%   variances and means. Each output row is one Monte Carlo draw.
+
+    validateattributes(meanForecast, {'double'}, ...
+        {'row', 'real', 'finite', 'nonempty'}, mfilename, 'meanForecast');
+    validateattributes(varianceForecast, {'double'}, ...
+        {'row', 'real', 'finite', 'nonnegative', ...
+         'size', size(meanForecast)}, mfilename, 'varianceForecast');
+    validateattributes(correlationMatrix, {'double'}, ...
+        {'2d', 'real', 'finite', 'square'}, mfilename, 'correlationMatrix');
+    validateattributes(simulationCount, {'double'}, ...
+        {'scalar', 'real', 'finite', 'integer', 'positive'}, ...
+        mfilename, 'simulationCount');
+
+    seriesCount = numel(meanForecast);
+    if ~isequal(size(correlationMatrix), [seriesCount, seriesCount])
+        error('Diss:VaR:InvalidCorrelationSize', ...
+            'correlationMatrix must have one row and column per series.');
+    end
+
+    correlationMatrix = (correlationMatrix + correlationMatrix') / 2;
+    correlationMatrix(1:seriesCount + 1:end) = 1;
+    [lowerFactor, cholStatus] = chol(correlationMatrix, 'lower');
+    if cholStatus ~= 0
+        error('Diss:VaR:NonPositiveDefiniteCorrelation', ...
+            'correlationMatrix must be positive definite.');
+    end
+
+    standardizedInnovations = randn(simulationCount, seriesCount) * ...
+        lowerFactor';
+    simulatedReturns = meanForecast + standardizedInnovations .* ...
+        sqrt(varianceForecast);
+end

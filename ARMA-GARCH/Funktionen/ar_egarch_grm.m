@@ -1,4 +1,4 @@
-function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG]=ar_egarch_grm(data, p, o, q,errors, arlag, const, options, startingvals)
+function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG]=ar_egarch_grm(data, p, o, q,errors, arlag, const, options, startingvals, computeInference)
 % PURPOSE:
 %     E_GARCH(P,Q) parameter estimation with different error distributions, the Normal, The T,
 %     and the Generalized Error Distribution
@@ -86,6 +86,9 @@ function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, E
 % Modification: Martin Grziska, 02/21/2010
 
 t=size(data,1);
+if nargin < 10 || isempty(computeInference)
+    computeInference = true;
+end
 
 if strcmp(errors,'NORMAL') || strcmp(errors,'STUDENTST') || strcmp(errors,'GED') ||  strcmp(errors,'SKEWT')
     if strcmp(errors,'NORMAL')
@@ -138,8 +141,8 @@ if nargin<8 || isempty(options)
     options  =  optimset(options , 'Diagnostics' , 'on');
     options  =  optimset(options , 'LargeScale'  , 'off');
     options  =  optimset(options , 'MaxFunEvals' , 400*(2+p+q)) ;
-    options  =  optimset(options , 'Algorithm'   ,'interior-point');   
-%     options  =  optimset(options , 'Algorithm'   ,'active-set');   
+    options  =  optimset(options , 'Algorithm'   ,'interior-point');
+%     options  =  optimset(options , 'Algorithm'   ,'active-set');
 end
 
 
@@ -158,16 +161,16 @@ AR = parameters_AR';
 stdEstimate =  std(data,1);
 
 if nargin<9 || isempty(startingvals)
-    
+
     [omega, beta,alpha, talpha]  =  egarch0(p, q, stdEstimate);
-    
+
     if strcmp(errors,'STUDENTST')
         EX = exist('garchset_grm');
-        if EX == 5 % Wenn Funktion garchset vorhanden ist benutze garchset  
+        if EX == 5 % Wenn Funktion garchset vorhanden ist benutze garchset
         Spec = garchset_grm('VarianceModel','EGARCH','Distribution','T','P',p,'Q',q,'Leverage',p);
         [Coeff] = garchfit_grm(Spec,data);
         nu = Coeff.DoF;
-        else 
+        else
             [omega, beta,alpha, talpha]  =  egarch0(p, q, stdEstimate);
             nu = 6;
         end
@@ -175,15 +178,15 @@ if nargin<9 || isempty(startingvals)
         nu=1.5;
     elseif strcmp(errors,'SKEWT')
         EX = exist('garchset_grm');
-        if EX == 5 % Wenn Funktion garchset vorhanden ist benutze garchset  
+        if EX == 5 % Wenn Funktion garchset vorhanden ist benutze garchset
         Spec = garchset_grm('VarianceModel','EGARCH','Distribution','T','P',p,'Q',q,'Leverage',p);
         [Coeff] = garchfit_grm(Spec,data);
         nu = Coeff.DoF;
-        else 
+        else
             [omega, beta,alpha, talpha]  =  egarch0(p, q, stdEstimate);
             nu = 6;
         end
-        lambda=0;       
+        lambda=0;
     else
         nu=[];
     end
@@ -253,8 +256,6 @@ if EXITFLAG<=0
 end
 
 
-hess = hessian_2sided('ar_egarchlikelihood_grm',parameters,data,p,o,q,errortype,arlag,const);
-
 if errortype ~=4
     likelihood=-likelihood;
 end
@@ -265,8 +266,13 @@ else
     t = t-arlag;
 end
 
-stderrors=hess^(-1);
-if nargout > 4
+stderrors = [];
+robustSE = [];
+scores = [];
+if computeInference
+    hess = hessian_2sided('ar_egarchlikelihood_grm', parameters, ...
+        data, p, o, q, errortype, arlag, const);
+    stderrors = hess \ eye(size(hess));
     h=min(abs(parameters/2),max(parameters,1e-2))*eps^(1/3);
     hplus=parameters+h;
     hminus=parameters-h;
@@ -284,8 +290,8 @@ if nargout > 4
         [HOLDER, HOLDER1, indivlike] = ar_egarchEstLikelihood_grm(hparameters,data,p,o,q,errortype, arlag, const);
         likelihoodsminus(:,i)=indivlike;
     end
-    scores=(likelihoodsplus-likelihoodsminus)./(2*repmat(h',t,1));
-    scores=scores-repmat(mean(scores),t,1);
+    scores = (likelihoodsplus-likelihoodsminus) ./ (2 * h');
+    scores = scores - mean(scores, 1);
     B=scores'*scores;
     robustSE=stderrors*B*stderrors;
 end

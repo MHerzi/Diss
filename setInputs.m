@@ -6,8 +6,6 @@ function Spec = setInputs(daten)
 % !!! Achtung: als directory darf nicht C:\Windows\system32\... stehen,
 % gibt ansonsten einen Konflikt mit der Matlab-Funktion input !!!
 
-% stelle sicher, dass nicht Windows-Verzeichnis aktuelles Verzeichnis ist
-cd G:
 [t,k]=size(daten);
 a = menu('Schätzung von:', 'Multivariaten GARCH', 'Multivariaten Copulas', 'Multivariaten Vine-Copulas', 'Multivariaten Mixture-Copulas','Multivariate (single) archimedische Copulas','Multivariate D-Vine Mixture','Histroische Simulation VaR','Delta-Normal VaR','Soll eine CVaR-Portfoliooptimierung durchgeführt werden?');
 if a == 1
@@ -23,21 +21,9 @@ if a == 1
         Spec.DynamicType = 'AGDCC';
     end
     f = menu('ARCH-Term des DCC','1','2','3');
-    if f == 1
-        Spec.dccP = 1;
-    elseif f==2
-        Spec.dccP = 1;
-    elseif f == 3
-        Spec.dccP = 1;
-    end
+    Spec.dccP = f;
     g = menu('GARCH-Term des DCC','1','2','3');
-    if g == 1
-        Spec.dccQ = 1;
-    elseif g==2
-        Spec.dccQ = 1;
-    elseif g == 3
-        Spec.dccQ = 1;
-    end
+    Spec.dccQ = g;
     if e == 2 || e == 4
         h = menu('Asymmetric-Term des DCC','1');
         if h == 1
@@ -45,7 +31,7 @@ if a == 1
         end
     else Spec.dccG=0;
     end
-    
+
 elseif a == 2
     Spec.ModelType = 'MultiCopula';
     aa = menu('Marginalverteilung?','Pareto','Empirisch','bekannt');
@@ -56,7 +42,7 @@ elseif a == 2
     else
         Spec.tails = [];
     end
-   
+
     b = menu('Spezifizieren der Verteilung','Gauss','t');
     if b == 1
         Spec.CopulaType = 'Gauss';
@@ -354,7 +340,7 @@ elseif a==7
 elseif a==8
     Spec.ModelType='DeltaNormal';
     Spec.ForecastNumb = input('Anzahl der Vorhersageperioden:','s');
-    Spec.ForecastNumb = str2num(Spec.ForecastNumb);
+    Spec.ForecastNumb = str2double(Spec.ForecastNumb);
 elseif a==9
     Spec.PortOpt = 'on';
     Spec.ModelType=[];
@@ -367,15 +353,15 @@ elseif a==9
         Spec. beta = .90;
     end
     UB = input('Upper Bound der einzelnen Gewichte:','s');
-    Spec.UB = str2num(UB);
+    Spec.UB = str2double(UB);
     LB = input('Lower Bound der einzelnen Gewichte:','s');
-    Spec.LB = str2num(LB);
+    Spec.LB = str2double(LB);
     Spec.ForecastNumb = input('Anzahl der Vorhersageperioden:','s');
-    Spec.ForecastNumb = str2num(Spec.ForecastNumb);
+    Spec.ForecastNumb = str2double(Spec.ForecastNumb);
     zt = input('In wieviele Zeiträume soll das Backtest-sample eingeteilt werden:','s');
-    zt = str2num(zt);
+    zt = str2double(zt);
     arp = input('Maximale AR-Laglänge der univariten GARCH-Modelle:','s');
-    arp = str2num(arp);
+    arp = str2double(arp);
     %disp('Beachte: Der Forecast darf nur bis zum Zeitpunkt t-1 gehen')
     %Spec.ForecastStart = input('Startzeitpunkt der Vorhersage:','s');
     disp('Der Startzeitpunkt für den Backtest wird so berechnet, dass genau bis zum bis zum Zeitpunkt t-1 vorhersagen gemachte werden')
@@ -396,13 +382,13 @@ elseif c == 2
     elseif d==3
         Spec.SimNumb = 10000;
     end
-    disp(['Länge des gesamten Datensatzes:',t]);
+    fprintf('Länge des gesamten Datensatzes: %d\n', t);
     Spec.ForecastNumb = input('Anzahl der Vorhersageperioden:','s');
-    Spec.ForecastNumb = str2num(Spec.ForecastNumb);
+    Spec.ForecastNumb = str2double(Spec.ForecastNumb);
     zt = input('In wieviele Zeiträume soll das Backtest-sample eingeteilt werden:','s');
-    zt = str2num(zt);
+    zt = str2double(zt);
     arp = input('Maximale AR-Laglänge der univariten GARCH-Modelle:','s');
-    arp = str2num(arp);
+    arp = str2double(arp);
     %disp('Beachte: Der Forecast darf nur bis zum Zeitpunkt t-1 gehen')
     %Spec.ForecastStart = input('Startzeitpunkt der Vorhersage:','s');
     disp('Der Startzeitpunkt für den Backtest wird so berechnet, dass genau bis zum bis zum Zeitpunkt t-1 vorhersagen gemachte werden')
@@ -479,7 +465,7 @@ else
         Spec.uniforecastP = 150;
     elseif eee == 4
         Spec.uniforecastP = 125;
-    elseif eee == 4
+    elseif eee == 5
         Spec.uniforecastP = 25;
     end
 end

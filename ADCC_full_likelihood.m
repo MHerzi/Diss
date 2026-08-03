@@ -43,8 +43,6 @@ function [logL, Rt, likelihoods, Qt] = ADCC_full_likelihood(parameters, data, ar
 index=1;
 H=zeros(size(data));
 stdEstimate =  std(data,1);
-P=dccP;
-Q=dccQ;
 m=max(max(archP),max(garchQ));
 
 % for i=1:k
@@ -58,73 +56,41 @@ gamma=zeros(k,1);
 
 for i=1:k
     univariateparameters=parameters(index:index+archP(i)+o(i)+garchQ(i)+gamma(i));
-    if garchtype(:,i)==0;
+    if garchtype(i) == 0
         H(:,i) = egarchcore(data(:,i), univariateparameters(1:end-gamma(i)), stdEstimate(:,i), archP(i), o(i), garchQ(i), m , t);
     else
         %         set leverage term to zero if model contains not leverage but
         %         power-parameter
+        currentAsymmetricOrder = o(i);
         if garchtype(i) == 4
-            o2(i) = 0;
+            currentAsymmetricOrder = 0;
         elseif garchtype(i) == 6
             %     special case: APGARCH contains leverage and power-parameter
-            o2(i) = 1;
-        else
-            o2(i) = o(i);
+            currentAsymmetricOrder = 1;
         end
-        [simulatedata, H(:,i)] = ADCC_univariate_simulate(univariateparameters, data(:,i), archP(i), o2(i), garchQ(i), garchtype(i), errortype(i), stdEstimate(i));
+        [~, H(:,i)] = ADCC_univariate_simulate(univariateparameters, ...
+            data(:,i), archP(i), currentAsymmetricOrder, garchQ(i), ...
+            garchtype(i), errortype(i), stdEstimate(i));
     end
     index=index+archP(i)+garchQ(i)+o(i)+gamma(i)+1;
 end
 
 stdresid=data./sqrt(H);
 
-params=parameters;
-a          = params(index:index+dccP-1);
-a_negative = params(index+dccP:index+dccP+dccG-1);
-b = params(index+dccP+dccG:index+dccP+dccG+dccQ-1);
-sumA = eye(k)*sum(a);
-sumA_negative = eye(k)*sum(a_negative);
-sumB = eye(k)*sum(b);
+a = parameters(index:index+dccP-1);
+aNegative = parameters(index+dccP:index+dccP+dccG-1);
+b = parameters(index+dccP+dccG:index+dccP+dccG+dccQ-1);
+identityMatrix = eye(k);
+archMatrices = identityMatrix .* reshape(a, 1, 1, dccP);
+asymmetricMatrices = identityMatrix .* reshape(aNegative, 1, 1, dccG);
+garchMatrices = identityMatrix .* reshape(b, 1, 1, dccQ);
+qBar = cov(stdresid);
+negativeQBar = cov(min(stdresid, 0));
 
-Qbar = cov(stdresid);
-Nbar_negative = cov(stdresid.*(stdresid < 0));
-
-m = max(dccP,dccQ);
-Qt = zeros(k,k,t+m);
-Rt = zeros(k,k,t+m);
-Qt(:,:,1:m) = repmat(Qbar,[1 1 m]);
-Rt(:,:,1:m) = repmat(Qbar,[1 1 m]);
-H=[zeros(m,k);H];
-logL = 0;
-likelihoods = zeros(1,t+m);
-
-stdresid = [zeros(m,k); stdresid];
-negativeStdresid = stdresid .* (stdresid < 0);
-violatedPSD = 0;
-Qinitial = Qbar * (eye(k) - sumA.^2 - sumB.^2) - Nbar_negative * sumA_negative.^2;
-for j = (m+1):t+m
-    Qt(:,:,j) = Qinitial;
-    for i=1:P
-        Qt(:,:,j) = Qt(:,:,j) + a(i)*(stdresid(j-i,:)'*stdresid(j-i,:))*a(i);
-        Qt(:,:,j) = Qt(:,:,j) + a_negative(i)*(negativeStdresid(j-i,:)'*negativeStdresid(j-i,:))*a_negative(i);
-    end
-    for i = 1:Q
-        Qt(:,:,j) = Qt(:,:,j) + b(i)*Qt(:,:,j-i)*b(i);
-    end
-    Rtemp = Qt(:,:,j)./(sqrt(diag(Qt(:,:,j)))*sqrt(diag(Qt(:,:,j)))');
-    Rtemp = Rtemp - diag(diag(Rtemp)) + eye(k);
-    Rt(:,:,j) = Rtemp;
-    maxmax = max(max(Rt(:,:,j)));
-    minmin = min(min(Rt(:,:,j)));
-    if maxmax > 1 || minmin < -1
-        violatedPSD = 1;
-    end
-    likelihoods(j)=k*log(2*pi)+sum(log(H(j,:)))+log(det(Rt(:,:,j)))+stdresid(j,:)*inv(Rt(:,:,j))*stdresid(j,:)';
-    logL = logL + likelihoods(j);
-end;
-
-Qt = Qt(:,:,(m+1:t+m));
-Rt = Rt(:,:,(m+1:t+m));
-logL = (1/2)*logL;
-likelihoods = [(1/2)*likelihoods(m+1:t+m)]';
+[logL, isValid, Rt, likelihoods, Qt] = ...
+    dccFilterForRequestedOutputs(nargout, stdresid, H, qBar, ...
+    archMatrices, garchMatrices, asymmetricMatrices, negativeQBar);
+if ~isValid
+    logL = 1e16;
+end
 

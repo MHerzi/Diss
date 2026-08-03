@@ -27,14 +27,14 @@ if strcmp(Spec.ModelType,'HistSim_Copula') || strcmp(Spec.ModelType,'HistSim_Gau
         end
     end
     maxarlag = max(maxarlag);
-    
+
     if strcmp(Spec.ModelType,'HistSim_Gauss') || strcmp(Spec.ModelType,'HistSim_Copula')
         if strcmp(Spec.Sim,'Window')
             [VaR] = HS_VaR(daten,Spec,maxarlag,'on');
-            break
+            return
         elseif strcmp(Spec.Sim,'Pearson')
             [VaR] = HS_VaR_Pearson(daten,Spec,maxarlag,'on');
-            break
+            return
         end
     end
 end
@@ -56,14 +56,26 @@ end
 % bringe für multivariate GARCH-Funktionen Lag-Terme in Vektoren
 if isempty(Spec.archP)
     archP=ones(1,k);
-elseif length(Spec.archP)==1
+elseif isscalar(Spec.archP)
     archP=ones(1,k)*Spec.archP;
+else
+    archP = Spec.archP(:)';
+    if numel(archP) ~= k
+        error('Diss:Main:InvalidArchOrder', ...
+            'Spec.archP must be scalar or contain one value per series.');
+    end
 end
 
 if isempty(Spec.garchQ)
     garchQ=ones(1,k);
-elseif length(Spec.garchQ)==1
+elseif isscalar(Spec.garchQ)
     garchQ=ones(1,k)*Spec.garchQ;
+else
+    garchQ = Spec.garchQ(:)';
+    if numel(garchQ) ~= k
+        error('Diss:Main:InvalidGarchOrder', ...
+            'Spec.garchQ must be scalar or contain one value per series.');
+    end
 end
 
 % -------------------------------------------------------------------------
@@ -103,7 +115,7 @@ if strcmp(Spec.ModelType,'MultiCopula') || strcmp(Spec.ModelType,'VineCopula') |
         scores_new{i} = GARCHOutput{i}.Scores(ardiff(i)+1:end,:);
         daten_new(:,i) = daten(maxarlag+1:end,i);
     end
-    
+
     if strcmp(Spec.tails,'pareto')
         [U_new,upareto] = paretocdf(stdresid);
     elseif strcmp(Spec.tails,'empirical')
@@ -118,7 +130,7 @@ if strcmp(Spec.ModelType,'MultiCopula') || strcmp(Spec.ModelType,'VineCopula') |
         end
     end
     [t,k] = size(stdresid);
-    
+
     % für die multivariaten GARCH
 elseif strcmp(Spec.ModelType,'MultiGARCH')
     maxarlag_Gauss=zeros(k,1);
@@ -129,10 +141,10 @@ elseif strcmp(Spec.ModelType,'MultiGARCH')
         arlag_Gauss(i) = GARCHOutput_Gauss{i}.arlag;
     end
     maxarlag_Gauss = max(maxarlag_Gauss);
-    
+
     for i=1:k
         if GARCHOutput_Gauss{i}.arlag<maxarlag_Gauss
-            ardiff_Gauss(i) = maxarlag-GARCHOutput_Gauss{i}.arlag;
+            ardiff_Gauss(i) = maxarlag_Gauss-GARCHOutput_Gauss{i}.arlag;
         else ardiff_Gauss(i) = 0;
         end
         ht_new_Gauss(:,i) = GARCHOutput_Gauss{i}.ht(ardiff_Gauss(i)+1:end);
@@ -229,7 +241,7 @@ if strcmp(Spec.ModelType,'MultiGARCH') == 1
             parametersALL = parametersALL';
         end
         parametersALL = [parametersALL; dccparameters];
-        
+
         if strcmp(Spec.DynamicType,'DCC')==1
             [logL, Rt, likelihoods, Qt] = DCC_full_likelihood(parameters, resid_new_Gauss, archP, garchQ, asymmG, garchtype, errortype, Spec.dccP, Spec.dccQ);
             likelihoods=-likelihoods;
@@ -277,7 +289,7 @@ if strcmp(Spec.ModelType,'MultiGARCH') == 1
             end
         end
         [GOF_Stat,zt] = GOF_MVGARCH(stdresid_Gauss,Rt);
-        break
+        return
     end
     if strcmp(Spec.purpose,'backtest') == 1
         if strcmp(Spec.ModelType,'MultiGARCH')
@@ -291,10 +303,10 @@ if strcmp(Spec.ModelType,'MultiGARCH') == 1
             %             MArginalModel: Daten von 2:526 werden zur Schätzung genommen;
             %             dann steht in 526 der erste forecast mit foecastP=104 steht
             %             dann in 629 der letzte VaR-forecast für t=629
-            
+
             if strcmp(Spec.uniBacktest,'on')
                 g=1;
-                c=length(daten);
+                c=size(daten,1);
                 for i=Spec.ForecastStart:Spec.uniforecastP:c-Spec.uniforecastP
                     [GARCHOutput_Backtest_Gauss{g}] = AR_MarginalModel_add(daten(1:i,:),Spec.archP,Spec.garchQ,GARCHOutput_Gauss);
                     g=g+1;
@@ -306,7 +318,7 @@ if strcmp(Spec.ModelType,'MultiGARCH') == 1
             %     Berechne VaR für den Backtest Zeitraum
             clear rnd_ret
             [VaR,rnd_ret] = VaR_MultiGARCH(AR_pred,ht_pred,GARCHOutput_Gauss,Rt_pred,Spec.SimNumb,daten,'on',Spec);
-            break
+            return
         end
     end
 end
@@ -345,7 +357,7 @@ if strcmp(Spec.ModelType,'MultiCopula')
         %                 [CopParam_tv, Weights_tv, copparameters, LL_Mix, LL, AIC, BIC, CopParam_1] = copulafitmix_tv_grm2(family, U_new, Spec.DynamicType, 'an');
         %             end
         %         end
-        break
+        return
     elseif strcmp(Spec.purpose,'backtest')
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % Für den Backtest:
@@ -356,7 +368,7 @@ if strcmp(Spec.ModelType,'MultiCopula')
         %         werden sollen
         if strcmp(Spec.uniBacktest,'on')
             g=1;
-            c=length(daten);
+            c=size(daten,1);
             for i=Spec.ForecastStart:Spec.uniforecastP:c-Spec.uniforecastP
                 [GARCHOutput_Backtest{g}] = AR_MarginalModel_add(daten(1:i,:),Spec.archP,Spec.garchQ,GARCHOutput);
                 g=g+1;
@@ -364,14 +376,14 @@ if strcmp(Spec.ModelType,'MultiCopula')
             [AR_pred, ht_pred, resid] = univariateForecastBacktest(daten,GARCHOutput_Backtest,Spec.ForecastStart,Spec.uniforecastP,Spec);
         end
         %         [AR_pred, ht_pred] = univariate_pred_AR_Ht_1P(data,GARCHOutput_Backtest,1);
-        
+
         %         In den Backtest-Copula kommen schon um AR-Länge korrigierte
         %         Variablen deshalb muss maxarlag abgezogen werden
         %         start_new=Spec.ForecastStart-maxarlag;
         clear rnd_ret
         [Rt_pred,copparameters_backtest,rnd_ret,VaR] = BacktestMultiCopula_multistep(U_new,stdresid,GARCHOutput,GARCHOutput_Backtest,AR_pred,ht_pred,'on',daten,Spec,upareto);
         %         [VaR,SimReturn] = VaR_MultiCopula(AR_pred,ht_pred,GARCHOutput,Rt_pred,Spec.SimNumb,daten,Spec.ForecastStart,GARCHOutput_Backtest,Spec,params_backtest,'on',maxarlag,U_rnd,Spec.uniforecastP);
-        break
+        return
     end
 end
 
@@ -397,14 +409,14 @@ if strcmp(Spec.ModelType,'VineCopula')
         LL_complete = LogL + GARCH_LL;
         [aic,bic] = aicbic(LL_complete,k*(k-1)/2*size(StrOutput.VineParams{1}{1},1),t);
         [GOF_Stat,zt] = GOFVine(U_new_ordered,CopulaSpec,StrOutput);
-        break
+        return
     elseif strcmp(Spec.purpose,'backtest')
         %         [LogL, StrOutput, CopulaSpec] = fitCopulaVine_multistep_grm(U_new);
         if strcmp(Spec.uniBacktest,'on')
             %             !!!! Achtung : GARCHOutput_Backtest auch nach der obigen
             %             Reihenfolge ordnen!!!!
             g=1;
-            c = length(daten);
+            c = size(daten,1);
             for i=Spec.ForecastStart:Spec.uniforecastP:c-Spec.uniforecastP
                 [GARCHOutput_Backtest{g}] = AR_MarginalModel_add(daten(1:i,:),archP(1),garchQ(1),GARCHOutput);
                 g=g+1;
@@ -415,13 +427,13 @@ if strcmp(Spec.ModelType,'VineCopula')
         clear rnd_ret
         [Rt_pred,VineOutput_DMulti,CopulaSpec,rnd_ret,VaR] = BacktestVine_multistep(U_new_ordered,Spec.ForecastStart,CopulaSpec,GARCHOutput_ordered,GARCHOutput_Backtest_ordered, AR_pred_ordered,ht_pred_ordered,'on',daten,Spec,upareto);
         %         [VaR,SimReturn] = VineVaR(USim,GARCHOutput_ordered,GARCHOutput_Backtest_ordered,Spec.uniforecastP,Spec.SimNumb,AR_pred_ordered,ht_pred_ordered,'on',daten);
-        break
+        return
     end
 end
 
 %     Berechnung DVine mixture
 if strcmp(Spec.ModelType,'DVine-Mix')
-    if exist('CopulaSpec') == 0
+    if ~exist('CopulaSpec', 'var')
         CopulaSpec=[];
     end
     if strcmp(Spec.purpose,'full')
@@ -431,13 +443,17 @@ if strcmp(Spec.ModelType,'DVine-Mix')
         %         data_ordering = Vinecheckdata()
         CopulaSpec=[];
         [LogL, VineOutput, CopulaSpec, Vinephi]= fitCopulaVine_multistep_mix_grm(U_new_ordered,CopulaSpec,Spec.CopStat,'off');
+        GARCH_LL = zeros(k,1);
+        for i=1:k
+            GARCH_LL(i) = GARCHOutput{i}.LLF;
+        end
         GARCH_LL = -sum(GARCH_LL);%wandle negative LL in positive
         LL_complete = LogL + GARCH_LL;
     elseif strcmp(Spec.purpose,'backtest')
         CopulaSpec = setCopulaVineLLinputs_grm(k);
         if strcmp(Spec.uniBacktest,'on')
             g=1;
-            c = length(daten);
+            c = size(daten,1);
             for i=Spec.ForecastStart:Spec.uniforecastP:c-Spec.uniforecastP
                 [GARCHOutput_Backtest{g}] = AR_MarginalModel_add(daten(1:i,:),Spec.archP,Spec.garchQ,GARCHOutput);
                 g=g+1;
@@ -463,20 +479,20 @@ if strcmp(Spec.ModelType,'MultiMixCopula')
         else
             [AIC,BIC] = aicbic(LL_complete,size(tv_faktor,1),t);
         end
-        break
+        return
     elseif strcmp(Spec.purpose,'backtest')
         if strcmp(Spec.uniBacktest,'on')
             g=1;
-            c = length(daten);
+            c = size(daten,1);
             for i=Spec.ForecastStart:Spec.uniforecastP:c
                 [GARCHOutput_Backtest{g}] = AR_MarginalModel_add(daten(1:i,:),Spec.archP,Spec.garchQ,GARCHOutput);
                 g=g+1;
             end
-            [AR_pred, ht_pred, resid] = univariateForecastBacktest(daten,GARCHOutput_Backtest,Spec.ForecastStart,Spec.ForecastNumb);
+            [AR_pred, ht_pred, resid] = univariateForecastBacktest(daten,GARCHOutput_Backtest,Spec.ForecastStart,Spec.ForecastNumb,Spec);
         end
         clear rnd_ret
         [VaR,rnd_ret,CopParam_tv_back, Weights_tv_back, tv_faktor_back, CopParam_pred, weights_pred] = Backtest_VaR_Dynamic_Mixture_multistep(Spec.family,U_new,daten,GARCHOutput,GARCHOutput_Backtest,AR_pred,ht_pred,'on',Spec,upareto);
-        break
+        return
     end
 end
 
@@ -489,7 +505,7 @@ if strcmp(Spec.ModelType,'DeltaNormal')
     datenBack=daten(end-750+1:end,:);
     [VaRnumb] = VaR250(VaR,datenBack,250);
     [VaRExc] = VaRExc(VaR,Spec,daten,[],[]);
-    break
+    return
 end
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -511,7 +527,7 @@ elseif size(Spec.family,2)>1
     Spec.DynamicType=Spec.Dynamic;
 end
 [GOF_Stat,zt] = GOF_Copula(stdresid,Weights_tv,CopParam_tv,copparameters,Spec,upareto);
-% % 
+% %
 
 % % %
 % % %

@@ -1,5 +1,5 @@
 
-function [Output] = AR_MarginalModel_add_paretotail(data,archP,garchQ,GARCHOutput)
+function [Output] = AR_MarginalModel_add(data,archP,garchQ,GARCHOutput)
 % % % % %
 % Estimate marginal Distribution for univariate time series
 %
@@ -947,7 +947,7 @@ for j=1:k
         else
             Output{j}.const = 0;
         end
-    elseif strcmp(GARCHOutput{j}.GARCH,'TGARCH')==1 && strcmp(GARCHOutput{j}.dist,'SKEWT') == 1        
+    elseif strcmp(GARCHOutput{j}.GARCH,'TGARCH')==1 && strcmp(GARCHOutput{j}.dist,'SKEWT') == 1
         [parameters_TGARCH_SKEWT, LLF_TGARCH_SKEWT, stderrors_TGARCH_SKEWT, robustSE_TGARCH_SKEWT, ht_TGARCH_SKEWT, scores_TGARCH_SKEWT, resid_TGARCH_SKEWT, likelihood_TGARCH_SKEWT, EXITFLAG]=ar_multigarch_grm(data(:,j),1,1,1,'TGARCH','SKEWT',GARCHOutput{j}.arlag,const);
         BIC_TGARCH_SKEWT = 2*LLF_TGARCH_SKEWT+log(t)*size(parameters_TGARCH_SKEWT,1);
         Tstatistic_TGARCH_SKEWT=parameters_TGARCH_SKEWT./diag(robustSE_TGARCH_SKEWT).^0.5;

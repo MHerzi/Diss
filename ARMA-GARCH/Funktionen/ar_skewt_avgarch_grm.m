@@ -1,4 +1,4 @@
-function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_skewt_avgarch_grm(data , p , q , arlag, const, startingvals, options)
+function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_skewt_avgarch_grm(data , p , q , arlag, const, startingvals, options, computeInference)
 % PURPOSE:
 %     SKEWT_GARCH(P,Q) parameter estimation with different error distributions, the NOrmal, The T,
 %     and the Generalized Error Distribution
@@ -77,6 +77,9 @@ function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, E
 % Modifications by Martin Grziska, 05/02/2010
 
 t=size(data,1);
+if nargin < 8 || isempty(computeInference)
+    computeInference = true;
+end
 
 if nargin<7
     options=[];
@@ -124,7 +127,7 @@ if nargin<=5 || isempty(startingvals)
     [omega, beta, alpha]  =  garch0(p, q, stdEstimate);
     nu=5;
     lambda=0;
-    
+
 else
     omega=startingvals(1);
     alpha=startingvals(2:p+1);
@@ -149,7 +152,7 @@ if (nargin <= 5) ||isempty(options)
     options  =  optimset(options , 'LargeScale'  , 'off');
     options  =  optimset(options , 'MaxFunEvals' , 400*(2+p+q));
     options  =  optimset(options , 'Algorithm'   , 'interior-point');
-%     options  =  optimset(options , 'Algorithm'   , 'active-set');    
+%     options  =  optimset(options , 'Algorithm'   , 'active-set');
 %     options = optimset(options, 'TolX',1e-15);
 %     options = optimset(options, 'TolCon',1e-15);
 end
@@ -175,13 +178,17 @@ if EXITFLAG<=0
     fprintf(1,'Not Sucessful! \n')
 end
 
-if nargout>1
-    parameters(find(parameters(1:1+p+q) <  0)) = 0;
-    parameters(find(parameters(1) <= 0)) = realmin;
+parameters(parameters(1:1+p+q) < 0) = 0;
+parameters(1) = max(parameters(1), realmin);
+stderrors = [];
+robustSE = [];
+ht = [];
+scores = [];
+if computeInference
     hess = hessian_2sided('ar_skewt_avgarchlikelihood_grm',parameters,data,p , q, m, arlag, const);
-    [Holder, ht, likelihood]=ar_skewt_avgarchlikelihood_grm(parameters,data,p , q, m, arlag, const);
+    [~, ht, likelihood]=ar_skewt_avgarchlikelihood_grm(parameters,data,p , q, m, arlag, const);
     likelihood=-likelihood;
-    stderrors=hess^(-1);
+    stderrors = hess \ eye(size(hess));
 end
 
 if const==1
@@ -190,7 +197,7 @@ else
     t=t-arlag;
 end
 
-if nargout > 4
+if computeInference
     h=max(abs(parameters/2),1e-2)*eps^(1/3);
     hplus=parameters+h;
     hminus=parameters-h;
@@ -208,8 +215,8 @@ if nargout > 4
         [HOLDER, HOLDER1, indivlike] = ar_skewt_avgarchlikelihood_grm(hparameters, data, p , q, m, arlag, const);
         likelihoodsminus(:,i)=indivlike;
     end
-    scores=(likelihoodsplus-likelihoodsminus)./(2*repmat(h',t,1));
-    scores=scores-repmat(mean(scores),t,1);
+    scores = (likelihoodsplus-likelihoodsminus) ./ (2 * h');
+    scores = scores - mean(scores, 1);
     B=scores'*scores;
     robustSE=stderrors*B*stderrors;
 end

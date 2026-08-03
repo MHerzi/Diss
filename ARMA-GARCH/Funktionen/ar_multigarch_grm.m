@@ -1,4 +1,4 @@
-function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG]=ar_multigarch_grm(data,p,o,q,type,errors,arlag,const,options,startingvals)
+function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG]=ar_multigarch_grm(data,p,o,q,type,errors,arlag,const,options,startingvals,computeInference)
 % PURPOSE:
 %     This is a multi use univariate GARCH function which can estimate
 %     GARCH(you should use garchpq though), EGARCH(Nelson), Threshold GARCH(Zakoian),
@@ -73,6 +73,13 @@ function [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, E
 
 [t,k]=size(data);
 
+if nargin < 11 || isempty(computeInference)
+    computeInference = true;
+end
+validateattributes(computeInference, {'logical', 'double'}, {'scalar'}, ...
+    mfilename, 'computeInference');
+computeInference = logical(computeInference);
+
 if o~=0
     if strcmp(type,'GARCH') || strcmp(type,'AVGARCH') || strcmp(type,'NGARCH') || strcmp(type,'NAGARCH')
         error('Selected model does not allow for asymetric terms')
@@ -130,21 +137,21 @@ if (nargin <= 9) || isempty(options)
 end
 
 if strcmp(type,'EGARCH');
-    [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG]=ar_egarch_grm(data,p,o,q,errors,arlag,const);
+    [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG]=ar_egarch_grm(data,p,o,q,errors,arlag,const,[],[],computeInference);
     return
 elseif strcmp(type,'GARCH')
     if strcmp(errors,'SKEWT')
-        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_skewt_garch_grm(data,p,q,arlag,const);
+        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_skewt_garch_grm(data,p,q,arlag,const,[],[],computeInference);
         return
     else
-        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_fattailed_garch_grm(data,p,q,errors,arlag,const);
+        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_fattailed_garch_grm(data,p,q,errors,arlag,const,[],[],computeInference);
         return
     end
 elseif strcmp(type,'AVGARCH')
     if strcmp(errors,'SKEWT')
-        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_skewt_avgarch_grm(data,p,q,arlag,const);
+        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_skewt_avgarch_grm(data,p,q,arlag,const,[],[],computeInference);
     else
-        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_avgarch_garch_grm(data,p,q,errors,arlag,const);
+        [parameters, LLF, stderrors, robustSE, ht, scores, resid, likelihood, EXITFLAG] = ar_avgarch_garch_grm(data,p,q,errors,arlag,const,[],[],computeInference);
     end
     return
 end
@@ -291,7 +298,12 @@ elseif strcmp(errors,'SKEWT')
 end
 % additional constraint can be found in "ar_multigarch_nonlincon"
 
-[parameters, LLF, EXITFLAG, OUTPUT, LAMBDA, GRAD] =  fmincon('ar_multigarch_likelihood_grm', startingvalues ,sumA  , sumB ,[] , [] , LB , UB,'ar_multigarch_nonlincon',options,data, p , o, q, garchtype, errortype, arlag, const);
+objective = @(candidate) ar_multigarch_likelihood_grm(candidate, data, ...
+    p, o, q, garchtype, errortype, arlag, const);
+nonlinearConstraint = @(candidate) ar_multigarch_nonlincon(candidate, ...
+    data, p, o, q, garchtype, errortype, arlag, const);
+[parameters, LLF, EXITFLAG] = fmincon(objective, startingvalues, ...
+    sumA, sumB, [], [], LB, UB, nonlinearConstraint, options);
 
 if EXITFLAG<=0
     EXITFLAG
@@ -305,10 +317,13 @@ parameters(find(parameters(1) <= 0)) = realmin;
 t=t-arlag;
 
 likelihood=-likelihood;
-if nargout >= 3
+stderrors = [];
+robustSE = [];
+scores = [];
+if computeInference
     %Calculate std errors if needed
     hess = hessian_2sided('ar_multigarch_likelihood_grm',parameters,data,p,o,q,garchtype,errortype, arlag, const);
-    stderrors=hess^(-1);
+    stderrors = hess \ eye(size(hess));
     h=min(abs(parameters/2)+1e-4,max(parameters,1e-2))*eps^(1/3);
     hplus=parameters+h;
     hminus=parameters-h;
@@ -327,8 +342,8 @@ if nargout >= 3
         likelihoodsminus(:,i)=indivlike;
     end
     %     (f(x+h) - f(x-h))/2h
-    scores=(likelihoodsplus-likelihoodsminus)./(2*repmat(h',t,1));
-    scores=scores-repmat(mean(scores),t,1);
+    scores = (likelihoodsplus-likelihoodsminus) ./ (2 * h');
+    scores = scores - mean(scores, 1);
     B=scores'*scores;
     robustSE=stderrors*B*stderrors;
 end
